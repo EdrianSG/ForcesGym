@@ -23,7 +23,8 @@ export async function login(email: string, pass: string) {
     return {
       user: null,
       profile: null,
-      error: 'Correo o contraseña incorrectos (Modo Demostración).',
+      error:
+        'Supabase no está configurado en este entorno. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en Vercel.',
     }
   }
 
@@ -52,7 +53,10 @@ export async function login(email: string, pass: string) {
     return {
       user: null,
       profile: null,
-      error: error?.message || 'Error al iniciar sesión.',
+      error:
+        error?.message === 'Invalid login credentials'
+          ? 'Correo o contraseña incorrectos en Supabase.'
+          : error?.message || 'Error al iniciar sesión en Supabase.',
     }
   }
 

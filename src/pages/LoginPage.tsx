@@ -3,12 +3,17 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BrandMark } from '@/components/layouts/BrandMark'
 import { Button } from '@/components/ui/Button'
-import { SupabaseStatus } from '@/components/ui/SupabaseStatus'
 import { DEMO_ADMIN } from '@/data/demoAuth'
+import { useSupabaseStatus } from '@/hooks/useSupabaseStatus'
 import { login } from '@/services/authService'
+import { cn } from '@/utils/cn'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const status = useSupabaseStatus()
+  const isOnline = status.state === 'ok'
+  const isChecking = status.state === 'checking'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -115,7 +120,21 @@ export function LoginPage() {
           </button>
         </div>
 
-        <SupabaseStatus className="mt-4" />
+        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted">
+          <span
+            className={cn(
+              'size-2 rounded-full',
+              isChecking
+                ? 'bg-amber-400 animate-pulse'
+                : isOnline
+                  ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
+                  : 'bg-zinc-400',
+            )}
+          />
+          <span>
+            {isChecking ? 'Comprobando…' : isOnline ? 'En línea' : 'Sin conexión'}
+          </span>
+        </div>
       </div>
     </div>
   )
