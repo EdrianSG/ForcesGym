@@ -21,3 +21,4 @@ Copia `.env.example` a `.env` y completa:
 Esas claves están en Supabase → Project Settings → API. No uses la service role key en el frontend.
 
 Reinicia `npm run dev` después de crear o cambiar `.env`.
+# ForcesGym

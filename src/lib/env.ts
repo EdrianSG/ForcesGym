@@ -32,12 +32,7 @@ function isValidSupabaseUrl(url: string): boolean {
 
   try {
     const parsed = new URL(url)
-    const isLocal =
-      parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
-    const isCloud =
-      parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co')
-
-    return isLocal || isCloud
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
   } catch {
     return false
   }
