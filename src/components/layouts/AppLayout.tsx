@@ -10,11 +10,16 @@ export function AppLayout() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!data?.session) {
+          void navigate('/login')
+        }
+      })
+      .catch(() => {
         void navigate('/login')
-      }
-    })
+      })
   }, [navigate])
 
   async function handleLogout() {

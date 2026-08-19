@@ -14,15 +14,25 @@ export function useSupabaseStatus(): SupabaseSetupStatus {
   useEffect(() => {
     let cancelled = false
 
-    void supabase.auth.getSession().then(({ error }) => {
-      if (!cancelled) {
-        if (error) {
-          setStatus({ state: 'error', message: error.message })
-        } else {
-          setStatus({ state: 'ok' })
+    void supabase.auth
+      .getSession()
+      .then(({ error }) => {
+        if (!cancelled) {
+          if (error) {
+            setStatus({ state: 'error', message: error.message })
+          } else {
+            setStatus({ state: 'ok' })
+          }
         }
-      }
-    })
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setStatus({
+            state: 'error',
+            message: err instanceof Error ? err.message : 'Error de conexión',
+          })
+        }
+      })
 
     return () => {
       cancelled = true
