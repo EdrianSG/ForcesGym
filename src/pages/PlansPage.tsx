@@ -2,7 +2,6 @@ import { Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getPlans, togglePlanActive } from '@/services/plansService'
 import type { MembershipPlan } from '@/types'
@@ -45,7 +44,6 @@ export function PlansPage() {
           </Button>
         }
       />
-      <DemoNotice />
 
       <Card>
         <div className="overflow-x-auto">

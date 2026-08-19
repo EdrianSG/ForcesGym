@@ -1,55 +1,13 @@
 import { supabase } from '@/lib/supabase'
-import { isSupabaseConfigured } from '@/lib/env'
-import { DEMO_ADMIN } from '@/data/demoAuth'
 import type { Profile } from '@/types'
 
 export async function login(email: string, pass: string) {
-  if (!isSupabaseConfigured() || !supabase) {
-    if (
-      email.trim().toLowerCase() === DEMO_ADMIN.email &&
-      pass === DEMO_ADMIN.password
-    ) {
-      return {
-        user: { id: 'demo-admin-id', email: DEMO_ADMIN.email },
-        profile: {
-          id: 'demo-admin-id',
-          full_name: DEMO_ADMIN.fullName,
-          role: 'admin',
-          created_at: new Date().toISOString(),
-        } as Profile,
-        error: null,
-      }
-    }
-    return {
-      user: null,
-      profile: null,
-      error:
-        'Supabase no está configurado en este entorno. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en Vercel.',
-    }
-  }
-
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: email.trim(),
     password: pass,
   })
 
   if (error || !data.user) {
-    if (
-      email.trim().toLowerCase() === DEMO_ADMIN.email &&
-      pass === DEMO_ADMIN.password
-    ) {
-      return {
-        user: { id: 'demo-admin-id', email: DEMO_ADMIN.email },
-        profile: {
-          id: 'demo-admin-id',
-          full_name: DEMO_ADMIN.fullName,
-          role: 'admin',
-          created_at: new Date().toISOString(),
-        } as Profile,
-        error: null,
-      }
-    }
-
     return {
       user: null,
       profile: null,
@@ -70,7 +28,5 @@ export async function login(email: string, pass: string) {
 }
 
 export async function logout() {
-  if (isSupabaseConfigured() && supabase) {
-    await supabase.auth.signOut()
-  }
+  await supabase.auth.signOut()
 }

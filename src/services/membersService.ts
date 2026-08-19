@@ -1,25 +1,7 @@
 import { supabase } from '@/lib/supabase'
-import { isSupabaseConfigured } from '@/lib/env'
-import { MOCK_MEMBERS } from '@/data/mock'
 import type { MemberListItem } from '@/types'
 
-let mockMembersState: MemberListItem[] = [...MOCK_MEMBERS]
-
 export async function getMembers(query?: string): Promise<MemberListItem[]> {
-  if (!isSupabaseConfigured() || !supabase) {
-    if (!query || !query.trim()) {
-      return mockMembersState
-    }
-    const q = query.trim().toLowerCase()
-    return mockMembersState.filter(
-      (m) =>
-        m.membership_number.toLowerCase().includes(q) ||
-        m.full_name.toLowerCase().includes(q) ||
-        m.dni.toLowerCase().includes(q) ||
-        m.phone.toLowerCase().includes(q),
-    )
-  }
-
   const { data: members, error } = await supabase
     .from('members')
     .select('*, member_latest_subscriptions(*)')
@@ -27,7 +9,7 @@ export async function getMembers(query?: string): Promise<MemberListItem[]> {
 
   if (error || !members) {
     console.error('Error al obtener los clientes de Supabase:', error)
-    return mockMembersState
+    return []
   }
 
   const result: MemberListItem[] = members.map((m: Record<string, unknown>) => {
@@ -84,24 +66,6 @@ export async function createMemberWithSubscription(data: {
   price_paid: number
   plan_name?: string
 }): Promise<MemberListItem> {
-  if (!isSupabaseConfigured() || !supabase) {
-    const newMember: MemberListItem = {
-      id: `member-${Date.now()}`,
-      membership_number: data.membership_number,
-      full_name: data.full_name,
-      dni: data.dni,
-      phone: data.phone,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      current_plan_name: data.plan_name ?? 'Plan',
-      current_start_date: data.start_date,
-      current_end_date: data.end_date,
-      current_price_paid: data.price_paid,
-    }
-    mockMembersState.unshift(newMember)
-    return newMember
-  }
-
   const { data: member, error: memberError } = await supabase
     .from('members')
     .insert([
@@ -150,19 +114,6 @@ export async function updateMember(
     phone?: string
   },
 ): Promise<MemberListItem | null> {
-  if (!isSupabaseConfigured() || !supabase) {
-    mockMembersState = mockMembersState.map((m) =>
-      m.id === id
-        ? {
-            ...m,
-            ...data,
-            updated_at: new Date().toISOString(),
-          }
-        : m,
-    )
-    return getMemberById(id)
-  }
-
   const { error } = await supabase
     .from('members')
     .update({

@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getMembers } from '@/services/membersService'
 import type { MemberListItem } from '@/types'
@@ -46,7 +45,6 @@ export function MembersPage() {
           </Link>
         }
       />
-      <DemoNotice />
 
       <Card className="overflow-hidden">
         <div className="border-b border-line p-3 sm:p-4">

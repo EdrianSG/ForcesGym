@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getMembers } from '@/services/membersService'
 import {
@@ -95,7 +94,6 @@ export function DashboardPage() {
         title="Dashboard"
         description="Resumen operativo del gimnasio."
       />
-      <DemoNotice />
 
       {loading ? (
         <Card className="p-8 text-center text-muted">

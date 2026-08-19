@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BrandMark } from '@/components/layouts/BrandMark'
 import { Button } from '@/components/ui/Button'
-import { DEMO_ADMIN } from '@/data/demoAuth'
 import { useSupabaseStatus } from '@/hooks/useSupabaseStatus'
 import { login } from '@/services/authService'
 import { cn } from '@/utils/cn'
@@ -40,12 +39,6 @@ export function LoginPage() {
     }
   }
 
-  function fillDemoCredentials() {
-    setEmail(DEMO_ADMIN.email)
-    setPassword(DEMO_ADMIN.password)
-    setError(null)
-  }
-
   return (
     <div className="flex min-h-svh items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-[400px]">
@@ -73,7 +66,7 @@ export function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@forcesgym.local"
+                placeholder="admin@forcesgym.com"
                 className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-ink focus:ring-2 focus:ring-ink/10"
               />
             </label>
@@ -100,24 +93,6 @@ export function LoginPage() {
               {loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
             </Button>
           </form>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
-          <p className="font-medium text-ink">Acceso de demostración</p>
-          <p className="mt-1 text-muted">
-            Correo: <span className="font-medium text-ink">{DEMO_ADMIN.email}</span>
-          </p>
-          <p className="text-muted">
-            Contraseña:{' '}
-            <span className="font-medium text-ink">{DEMO_ADMIN.password}</span>
-          </p>
-          <button
-            type="button"
-            onClick={fillDemoCredentials}
-            className="mt-2 text-sm font-medium text-ink underline-offset-4 hover:underline"
-          >
-            Usar estas credenciales
-          </button>
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted">

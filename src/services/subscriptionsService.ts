@@ -1,6 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { isSupabaseConfigured } from '@/lib/env'
-import { MOCK_SUBSCRIPTIONS } from '@/data/mock'
 import type { Subscription } from '@/types'
 
 export type SubscriptionWithDetails = Subscription & {
@@ -8,13 +6,7 @@ export type SubscriptionWithDetails = Subscription & {
   member_name: string
 }
 
-let mockSubscriptionsState: SubscriptionWithDetails[] = [...MOCK_SUBSCRIPTIONS]
-
 export async function getSubscriptions(): Promise<SubscriptionWithDetails[]> {
-  if (!isSupabaseConfigured() || !supabase) {
-    return mockSubscriptionsState
-  }
-
   const { data, error } = await supabase
     .from('subscriptions')
     .select('*, members(full_name), membership_plans(name)')
@@ -22,7 +14,7 @@ export async function getSubscriptions(): Promise<SubscriptionWithDetails[]> {
 
   if (error || !data) {
     console.error('Error al obtener las suscripciones de Supabase:', error)
-    return mockSubscriptionsState
+    return []
   }
 
   return data.map((sub: Record<string, unknown>) => {
@@ -62,22 +54,6 @@ export async function renewSubscription(data: {
   plan_name?: string
   member_name?: string
 }): Promise<SubscriptionWithDetails> {
-  if (!isSupabaseConfigured() || !supabase) {
-    const newSub: SubscriptionWithDetails = {
-      id: `sub-${Date.now()}`,
-      member_id: data.member_id,
-      plan_id: data.plan_id,
-      start_date: data.start_date,
-      end_date: data.end_date,
-      price_paid: data.price_paid,
-      created_at: new Date().toISOString(),
-      plan_name: data.plan_name ?? 'Plan',
-      member_name: data.member_name ?? 'Cliente',
-    }
-    mockSubscriptionsState.unshift(newSub)
-    return newSub
-  }
-
   const { data: inserted, error } = await supabase
     .from('subscriptions')
     .insert([
@@ -124,13 +100,6 @@ export async function updateSubscription(
     price_paid?: number
   },
 ): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) {
-    mockSubscriptionsState = mockSubscriptionsState.map((sub) =>
-      sub.id === subscriptionId ? { ...sub, ...data } : sub,
-    )
-    return
-  }
-
   const { error } = await supabase
     .from('subscriptions')
     .update(data)

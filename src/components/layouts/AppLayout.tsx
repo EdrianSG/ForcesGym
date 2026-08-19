@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { MobileHeader } from '@/components/layouts/MobileHeader'
 import { Sidebar } from '@/components/layouts/Sidebar'
-import { isSupabaseConfigured } from '@/lib/env'
 import { supabase } from '@/lib/supabase'
 import { logout } from '@/services/authService'
 
@@ -11,14 +10,11 @@ export function AppLayout() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (isSupabaseConfigured() && supabase) {
-      void supabase.auth.getSession().then(({ data }) => {
-        if (!data.session) {
-          // If no session found in Supabase, redirect to login
-          void navigate('/login')
-        }
-      })
-    }
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        void navigate('/login')
+      }
+    })
   }, [navigate])
 
   async function handleLogout() {

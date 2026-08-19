@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { createMemberWithSubscription, getMembers } from '@/services/membersService'
 import { getPlans } from '@/services/plansService'
@@ -117,7 +116,6 @@ export function MemberNewPage() {
         title="Nuevo cliente"
         description="Registra al cliente y define por cuánto tiempo inicia su membresía."
       />
-      <DemoNotice />
 
       <Card className="mx-auto max-w-2xl p-6">
         <form className="space-y-8" onSubmit={handleSubmit}>
