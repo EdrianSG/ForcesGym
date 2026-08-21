@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { createAndUploadInvoice } from '@/services/invoicesService'
 import type { MemberListItem } from '@/types'
 
 export async function getMembers(query?: string): Promise<MemberListItem[]> {
@@ -83,18 +84,38 @@ export async function createMemberWithSubscription(data: {
     throw new Error(memberError.message)
   }
 
-  const { error: subError } = await supabase.from('subscriptions').insert([
-    {
-      member_id: member.id,
-      plan_id: data.plan_id,
-      start_date: data.start_date,
-      end_date: data.end_date,
-      price_paid: data.price_paid,
-    },
-  ])
+  const { data: subData, error: subError } = await supabase
+    .from('subscriptions')
+    .insert([
+      {
+        member_id: member.id,
+        plan_id: data.plan_id,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        price_paid: data.price_paid,
+      },
+    ])
+    .select()
+    .single()
 
-  if (subError) {
-    throw new Error(subError.message)
+  if (subError || !subData) {
+    throw new Error(subError?.message ?? 'Error al crear la suscripción.')
+  }
+
+  // Generar Boleta SUNAT en PDF y subir a Supabase Storage
+  try {
+    await createAndUploadInvoice({
+      subscription_id: subData.id,
+      member_id: member.id,
+      client_code: member.membership_number,
+      client_name: member.full_name,
+      client_document: member.dni,
+      plan_name: data.plan_name ?? 'Membresía Gimnasio',
+      total: data.price_paid,
+      voucher_type: 'boleta',
+    })
+  } catch (invErr) {
+    console.warn('Aviso al emitir boleta de venta:', invErr)
   }
 
   const created = await getMemberById(member.id)

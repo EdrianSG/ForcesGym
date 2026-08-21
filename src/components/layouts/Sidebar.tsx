@@ -1,4 +1,4 @@
-import { CreditCard, IdCard, LayoutDashboard, LogOut, Users, X } from 'lucide-react'
+import { CreditCard, FileText, IdCard, LayoutDashboard, LogOut, Users, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { BrandMark } from '@/components/layouts/BrandMark'
 import { useSupabaseStatus } from '@/hooks/useSupabaseStatus'
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/members', label: 'Clientes', icon: Users },
   { to: '/memberships', label: 'Membresías', icon: IdCard },
   { to: '/plans', label: 'Planes', icon: CreditCard },
+  { to: '/invoices', label: 'Facturación SUNAT', icon: FileText },
 ] as const
 
 interface SidebarProps {
@@ -82,7 +83,7 @@ export function Sidebar({ open, onClose, onLogout }: SidebarProps) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">Administrador</p>
                 <p className="truncate text-xs text-sidebar-muted">
-                  admin@forcesgym.local
+                  admin@forcesgym.com
                 </p>
               </div>
             </div>

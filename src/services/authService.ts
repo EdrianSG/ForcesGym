@@ -8,13 +8,22 @@ export async function login(email: string, pass: string) {
   })
 
   if (error || !data.user) {
+    const rawMsg = error?.message || ''
+    let userMsg = 'Error al iniciar sesión en Supabase.'
+
+    if (rawMsg === 'Invalid login credentials') {
+      userMsg = 'Correo o contraseña incorrectos en Supabase.'
+    } else if (rawMsg === 'Failed to fetch' || rawMsg.includes('fetch')) {
+      userMsg =
+        'No se pudo contactar con Supabase (Failed to fetch). Verifica que las variables en Vercel estén activas y que el proyecto de Supabase esté activo.'
+    } else if (rawMsg) {
+      userMsg = rawMsg
+    }
+
     return {
       user: null,
       profile: null,
-      error:
-        error?.message === 'Invalid login credentials'
-          ? 'Correo o contraseña incorrectos en Supabase.'
-          : error?.message || 'Error al iniciar sesión en Supabase.',
+      error: userMsg,
     }
   }
 

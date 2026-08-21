@@ -44,3 +44,22 @@ export interface MemberListItem extends Member {
   current_end_date: string | null
   current_price_paid: number | null
 }
+
+export interface Invoice {
+  id: string
+  subscription_id: string | null
+  member_id: string | null
+  voucher_type: 'boleta' | 'factura'
+  invoice_number: string
+  client_code: string
+  client_name: string
+  client_document: string
+  plan_name: string
+  subtotal: number
+  igv: number
+  total: number
+  pdf_url: string | null
+  sunat_status: string
+  qr_code_data: string | null
+  created_at: string
+}

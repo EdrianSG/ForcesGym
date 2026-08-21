@@ -1,11 +1,12 @@
 import type { FormEvent } from 'react'
-import { Edit, RefreshCw, Sparkles, X } from 'lucide-react'
+import { Edit, FileText, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { getInvoicesByMemberId } from '@/services/invoicesService'
 import { getMemberById, getMembers, updateMember } from '@/services/membersService'
 import { getPlans } from '@/services/plansService'
 import {
@@ -13,7 +14,7 @@ import {
   renewSubscription,
   type SubscriptionWithDetails,
 } from '@/services/subscriptionsService'
-import type { MemberListItem, MembershipPlan } from '@/types'
+import type { Invoice, MemberListItem, MembershipPlan } from '@/types'
 import { formatDate, formatMoney, todayISODate } from '@/utils/dates'
 import {
   calculateEndDate,
@@ -31,6 +32,7 @@ export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [member, setMember] = useState<MemberListItem | null>(null)
   const [history, setHistory] = useState<SubscriptionWithDetails[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
 
   // Modal States
@@ -63,10 +65,12 @@ export function MemberDetailPage() {
       getSubscriptionsByMemberId(id),
       getPlans(),
       getMembers(),
-    ]).then(([m, h, pList, mList]) => {
+      getInvoicesByMemberId(id),
+    ]).then(([m, h, pList, mList, invList]) => {
       setMember(m)
       setHistory(h)
       setPlans(pList)
+      setInvoices(invList)
       setExistingNumbers(
         mList.filter((item) => item.id !== id).map((item) => item.membership_number),
       )
@@ -316,6 +320,70 @@ export function MemberDetailPage() {
           )}
         </Card>
       </div>
+
+      {/* Sección de Boletas y Comprobantes SUNAT (Almacenados en Supabase Storage) */}
+      <Card className="mt-4">
+        <div className="border-b border-line px-5 py-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="size-4 text-emerald-600" />
+            Boletas Electrónicas SUNAT (Guardadas en Supabase Storage)
+          </h2>
+        </div>
+        {invoices.length === 0 ? (
+          <p className="p-5 text-sm text-muted">
+            No hay boletas emitidas aún para este cliente. Se generará una automáticamente en su próxima renovación o registro.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-line bg-canvas/70 text-xs font-medium text-muted uppercase">
+                <tr>
+                  <th className="px-5 py-3">N° Comprobante</th>
+                  <th className="px-5 py-3">Cód. Socio</th>
+                  <th className="px-5 py-3">Plan</th>
+                  <th className="px-5 py-3">Subtotal</th>
+                  <th className="px-5 py-3">IGV (18%)</th>
+                  <th className="px-5 py-3">Total (S/.)</th>
+                  <th className="px-5 py-3 text-right">Archivo PDF</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-canvas/60">
+                    <td className="px-5 py-3 font-semibold text-ink">
+                      {inv.invoice_number}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted">
+                      #{inv.client_code}
+                    </td>
+                    <td className="px-5 py-3 text-muted">{inv.plan_name}</td>
+                    <td className="px-5 py-3 text-muted">{formatMoney(inv.subtotal)}</td>
+                    <td className="px-5 py-3 text-muted">{formatMoney(inv.igv)}</td>
+                    <td className="px-5 py-3 font-semibold text-ink">
+                      {formatMoney(inv.total)}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {inv.pdf_url ? (
+                        <a
+                          href={inv.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"
+                        >
+                          <FileText className="size-3.5" />
+                          Ver PDF (Storage)
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted">Sin PDF</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       {/* Modal Editar Cliente */}
       {showEditModal ? (

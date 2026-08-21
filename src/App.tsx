@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layouts/AppLayout'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { InvoicesPage } from '@/pages/InvoicesPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MemberDetailPage } from '@/pages/MemberDetailPage'
 import { MemberNewPage } from '@/pages/MemberNewPage'
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/members/:id" element={<MemberDetailPage />} />
           <Route path="/memberships" element={<MembershipsPage />} />
           <Route path="/plans" element={<PlansPage />} />
+          <Route path="/invoices" element={<InvoicesPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

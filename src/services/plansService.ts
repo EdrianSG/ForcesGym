@@ -29,3 +29,23 @@ export async function togglePlanActive(
     throw new Error(error.message)
   }
 }
+
+export async function updatePlan(
+  id: string,
+  data: {
+    name?: string
+    price?: number
+    duration_days?: number
+    active?: boolean
+  },
+): Promise<void> {
+  const { error } = await supabase
+    .from('membership_plans')
+    .update(data)
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error al actualizar el plan:', error)
+    throw new Error(error.message)
+  }
+}
