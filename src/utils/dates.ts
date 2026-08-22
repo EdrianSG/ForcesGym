@@ -11,7 +11,9 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat('es-PE', {
 })
 
 export function parseISODate(isoDate: string): Date {
-  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!isoDate) return new Date()
+  const cleanDate = isoDate.split('T')[0]
+  const [year, month, day] = cleanDate.split('-').map(Number)
   return new Date(year, month - 1, day)
 }
 
@@ -38,9 +40,21 @@ export function todayISODate(): string {
 }
 
 export function formatDate(isoDate: string): string {
-  return DATE_FORMATTER.format(parseISODate(isoDate))
+  if (!isoDate) return '—'
+  try {
+    if (isoDate.includes('T')) {
+      const d = new Date(isoDate)
+      if (!isNaN(d.getTime())) return DATE_FORMATTER.format(d)
+    }
+    const d = parseISODate(isoDate)
+    if (!isNaN(d.getTime())) return DATE_FORMATTER.format(d)
+    return String(isoDate)
+  } catch {
+    return String(isoDate)
+  }
 }
 
 export function formatMoney(amount: number): string {
+  if (typeof amount !== 'number' || isNaN(amount)) return 'S/. 0'
   return CURRENCY_FORMATTER.format(amount)
 }
