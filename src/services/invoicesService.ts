@@ -30,13 +30,14 @@ export function generateInvoicePDFBlob(data: {
   total: number
   voucherType?: 'boleta' | 'factura'
   issueDate?: string
-}): Blob {
+}): jsPDF {
   const doc = new jsPDF()
   const voucherTitle =
     data.voucherType === 'factura'
       ? 'FACTURA DE VENTA ELECTRÓNICA'
       : 'BOLETA DE VENTA ELECTRÓNICA'
 
+  // El precio ingresado (ej. 80.00) ES EL TOTAL CON IGV INCLUIDO
   const total = Number(data.total)
   const subtotal = Number((total / 1.18).toFixed(2))
   const igv = Number((total - subtotal).toFixed(2))
@@ -127,14 +128,28 @@ export function generateInvoicePDFBlob(data: {
   doc.setFontSize(8)
   doc.setTextColor(100)
   doc.text(
-    'Representación impresa de la Boleta de Venta Electrónica. Emitida mediante el Sistema SUNAT Perú.',
+    'Representación impresa de la Boleta de Venta Electrónica. Incluye IGV (18%).',
     14,
     140,
   )
   doc.text('ForcesGym — Gracias por tu confianza y disciplina.', 14, 145)
 
-  const arrayBuffer = doc.output('arraybuffer')
-  return new Blob([arrayBuffer], { type: 'application/pdf' })
+  return doc
+}
+
+export function downloadInvoicePDFDirectly(invoice: Invoice) {
+  const doc = generateInvoicePDFBlob({
+    invoiceNumber: invoice.invoice_number,
+    clientCode: invoice.client_code,
+    clientName: invoice.client_name,
+    clientDocument: invoice.client_document,
+    planName: invoice.plan_name,
+    total: invoice.total,
+    voucherType: invoice.voucher_type,
+    issueDate: new Date(invoice.created_at).toLocaleDateString('es-PE'),
+  })
+
+  doc.save(`Boleta_${invoice.invoice_number}.pdf`)
 }
 
 export async function createAndUploadInvoice(data: {
@@ -151,7 +166,7 @@ export async function createAndUploadInvoice(data: {
   const invoiceNumber = await getNextInvoiceNumber(prefix)
 
   // 1. Generar el PDF dinámico
-  const pdfBlob = generateInvoicePDFBlob({
+  const doc = generateInvoicePDFBlob({
     invoiceNumber,
     clientCode: data.client_code,
     clientName: data.client_name,
@@ -160,6 +175,9 @@ export async function createAndUploadInvoice(data: {
     total: data.total,
     voucherType: data.voucher_type ?? 'boleta',
   })
+
+  const arrayBuffer = doc.output('arraybuffer')
+  const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' })
 
   // 2. Subir el archivo PDF a Supabase Storage (bucket 'invoices')
   const fileName = `boleta_${invoiceNumber}.pdf`
@@ -171,10 +189,7 @@ export async function createAndUploadInvoice(data: {
     })
 
   if (storageError) {
-    console.warn(
-      'Aviso al subir PDF a Storage (se guardará sin URL si falla):',
-      storageError,
-    )
+    console.warn('Aviso al subir PDF a Storage:', storageError)
   }
 
   // 3. Obtener URL pública del PDF en Supabase Storage

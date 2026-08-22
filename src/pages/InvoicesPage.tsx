@@ -2,7 +2,7 @@ import { FileText, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getAllInvoices } from '@/services/invoicesService'
+import { downloadInvoicePDFDirectly, getAllInvoices } from '@/services/invoicesService'
 import type { Invoice } from '@/types'
 import { formatDate, formatMoney } from '@/utils/dates'
 
@@ -104,19 +104,14 @@ export function InvoicesPage() {
                       {formatMoney(inv.total)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {inv.pdf_url ? (
-                        <a
-                          href={inv.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        >
-                          <FileText className="size-3.5" />
-                          Ver PDF (Storage)
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted">Sin PDF</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoicePDFDirectly(inv)}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      >
+                        <FileText className="size-3.5" />
+                        Descargar PDF
+                      </button>
                     </td>
                   </tr>
                 ))

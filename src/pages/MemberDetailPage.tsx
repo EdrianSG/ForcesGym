@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getInvoicesByMemberId } from '@/services/invoicesService'
+import { downloadInvoicePDFDirectly, getInvoicesByMemberId } from '@/services/invoicesService'
 import { getMemberById, getMembers, updateMember } from '@/services/membersService'
 import { getPlans } from '@/services/plansService'
 import {
@@ -363,19 +363,14 @@ export function MemberDetailPage() {
                       {formatMoney(inv.total)}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      {inv.pdf_url ? (
-                        <a
-                          href={inv.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"
-                        >
-                          <FileText className="size-3.5" />
-                          Ver PDF (Storage)
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted">Sin PDF</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoicePDFDirectly(inv)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:underline"
+                      >
+                        <FileText className="size-3.5" />
+                        Descargar Boleta PDF
+                      </button>
                     </td>
                   </tr>
                 ))}
