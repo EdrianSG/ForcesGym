@@ -13,30 +13,45 @@ export function InvoicesPage() {
 
   useEffect(() => {
     let active = true
-    void getAllInvoices().then((data) => {
-      if (active) {
-        setInvoices(data)
-        setLoading(false)
-      }
-    })
+    getAllInvoices()
+      .then((data) => {
+        if (active) {
+          setInvoices(Array.isArray(data) ? data : [])
+          setLoading(false)
+        }
+      })
+      .catch((err) => {
+        console.error('Error al cargar boletas:', err)
+        if (active) {
+          setInvoices([])
+          setLoading(false)
+        }
+      })
     return () => {
       active = false
     }
   }, [])
 
-  const filteredInvoices = invoices.filter(
-    (inv) =>
-      inv.invoice_number.toLowerCase().includes(query.toLowerCase()) ||
-      inv.client_code.toLowerCase().includes(query.toLowerCase()) ||
-      inv.client_name.toLowerCase().includes(query.toLowerCase()) ||
-      inv.client_document.toLowerCase().includes(query.toLowerCase()),
-  )
+  const filteredInvoices = invoices.filter((inv) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    const num = String(inv.invoice_number ?? '').toLowerCase()
+    const code = String(inv.client_code ?? '').toLowerCase()
+    const name = String(inv.client_name ?? '').toLowerCase()
+    const doc = String(inv.client_document ?? '').toLowerCase()
+    return (
+      num.includes(q) ||
+      code.includes(q) ||
+      name.includes(q) ||
+      doc.includes(q)
+    )
+  })
 
   return (
     <div>
       <PageHeader
         title="Facturación Electrónica SUNAT"
-        description="Registro y archivos PDF de todas las boletas de venta emitidas guardadas en Supabase Storage."
+        description="Registro y archivos PDF de todas las boletas de venta emitidas guardadas en Supabase."
       />
 
       <Card className="overflow-hidden">
@@ -85,23 +100,23 @@ export function InvoicesPage() {
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-canvas/60">
                     <td className="px-4 py-3 font-semibold text-ink">
-                      {inv.invoice_number}
+                      {inv.invoice_number || '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted">
-                      {formatDate(inv.created_at)}
+                      {inv.created_at ? formatDate(inv.created_at) : '—'}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted">
-                      #{inv.client_code}
+                      #{inv.client_code || '0000'}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-ink">{inv.client_name}</p>
+                      <p className="font-medium text-ink">{inv.client_name || 'Cliente'}</p>
                       <p className="text-xs text-muted">DNI: {inv.client_document || '—'}</p>
                     </td>
-                    <td className="px-4 py-3 text-muted">{inv.plan_name}</td>
-                    <td className="px-4 py-3 text-muted">{formatMoney(inv.subtotal)}</td>
-                    <td className="px-4 py-3 text-muted">{formatMoney(inv.igv)}</td>
+                    <td className="px-4 py-3 text-muted">{inv.plan_name || 'Plan'}</td>
+                    <td className="px-4 py-3 text-muted">{formatMoney(inv.subtotal ?? 0)}</td>
+                    <td className="px-4 py-3 text-muted">{formatMoney(inv.igv ?? 0)}</td>
                     <td className="px-4 py-3 font-semibold text-ink">
-                      {formatMoney(inv.total)}
+                      {formatMoney(inv.total ?? 0)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
