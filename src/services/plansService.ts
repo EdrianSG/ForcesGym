@@ -49,3 +49,30 @@ export async function updatePlan(
     throw new Error(error.message)
   }
 }
+
+export async function createPlan(data: {
+  name: string
+  price: number
+  duration_days: number
+  active?: boolean
+}): Promise<MembershipPlan> {
+  const { data: inserted, error } = await supabase
+    .from('membership_plans')
+    .insert([
+      {
+        name: data.name,
+        price: data.price,
+        duration_days: data.duration_days,
+        active: data.active ?? true,
+      },
+    ])
+    .select()
+    .single()
+
+  if (error || !inserted) {
+    console.error('Error al crear el plan en Supabase:', error)
+    throw new Error(error?.message ?? 'No se pudo crear el plan.')
+  }
+
+  return inserted as MembershipPlan
+}

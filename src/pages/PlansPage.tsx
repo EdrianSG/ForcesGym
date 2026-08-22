@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getPlans, togglePlanActive, updatePlan } from '@/services/plansService'
+import { createPlan, getPlans, togglePlanActive, updatePlan } from '@/services/plansService'
 import type { MembershipPlan } from '@/types'
 import { formatMoney } from '@/utils/dates'
 import { cn } from '@/utils/cn'
@@ -13,6 +13,7 @@ export function PlansPage() {
   const [plans, setPlans] = useState<MembershipPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null)
+  const [showNewModal, setShowNewModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,13 +66,37 @@ export function PlansPage() {
     }
   }
 
+  async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    setSaving(true)
+    setError(null)
+
+    const formData = new FormData(event.currentTarget)
+    const name = String(formData.get('name') ?? '').trim()
+    const price = Number(formData.get('price'))
+    const duration_days = Number(formData.get('duration_days'))
+
+    try {
+      const created = await createPlan({ name, price, duration_days, active: true })
+      setPlans((prev) => [...prev, created])
+      setShowNewModal(false)
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Error al crear el nuevo plan.',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Planes de Membresía"
-        description="Gestiona los planes disponibles y modifica sus precios en tiempo real."
+        description="Gestiona los planes disponibles, agrega nuevos o modifica sus precios en tiempo real."
         actions={
-          <Button disabled title="Próximamente">
+          <Button onClick={() => setShowNewModal(true)}>
             <Plus className="size-4" />
             Nuevo plan
           </Button>
@@ -144,6 +169,87 @@ export function PlansPage() {
           </table>
         </div>
       </Card>
+
+      {/* Modal de Crear Nuevo Plan */}
+      {showNewModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-line pb-4">
+              <h2 className="text-lg font-semibold text-ink">
+                Crear Nuevo Plan
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowNewModal(false)}
+                className="rounded-lg p-1 text-muted hover:bg-canvas hover:text-ink"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="mt-4 space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-ink">
+                  Nombre del Plan
+                </span>
+                <input
+                  name="name"
+                  placeholder="Ej. Plan Trimestral VIP"
+                  required
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink focus:ring-2 focus:ring-ink/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-ink">
+                  Precio (S/.)
+                </span>
+                <input
+                  type="number"
+                  name="price"
+                  step="0.5"
+                  min="0"
+                  placeholder="150.00"
+                  required
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink font-semibold outline-none focus:border-ink focus:ring-2 focus:ring-ink/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-ink">
+                  Duración (Días)
+                </span>
+                <input
+                  type="number"
+                  name="duration_days"
+                  min="1"
+                  placeholder="30"
+                  defaultValue="30"
+                  required
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-ink focus:ring-2 focus:ring-ink/10"
+                />
+              </label>
+
+              {error ? (
+                <p className="text-sm font-medium text-status-expired">{error}</p>
+              ) : null}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowNewModal(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Guardando…' : 'Crear Plan'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {/* Modal de edición de precio y plan */}
       {editingPlan ? (
