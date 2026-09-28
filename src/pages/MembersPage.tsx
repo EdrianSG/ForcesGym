@@ -54,7 +54,7 @@ export function MembersPage() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por 1915, nombre, DNI o teléfono"
+              placeholder="Buscar por número de membresía, nombre, DNI o teléfono"
               className="w-full rounded-lg border border-line bg-canvas/60 py-2.5 pr-3 pl-10 text-sm outline-none placeholder:text-muted focus:border-ink focus:bg-surface focus:ring-2 focus:ring-ink/10"
             />
           </label>

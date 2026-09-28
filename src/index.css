@@ -3,16 +3,21 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --color-canvas: #f3f4f6;
-  --color-surface: #ffffff;
-  --color-ink: #111318;
-  --color-muted: #5c6370;
-  --color-line: #e6e8ec;
+  /* Forces Gym — paleta oficial */
+  --color-brand: #fddd0b;
+  --color-brand-light: #ffd92f;
+  --color-brand-dark: #c9af00;
 
-  --color-sidebar: #0c0e12;
-  --color-sidebar-muted: #8b919c;
-  --color-sidebar-hover: #161922;
-  --color-sidebar-active: #1c2028;
+  --color-canvas: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-ink: #000000;
+  --color-muted: #5c5c5c;
+  --color-line: #e5e5e5;
+
+  --color-sidebar: #1b1b1b;
+  --color-sidebar-muted: #a3a3a3;
+  --color-sidebar-hover: #2a2a2a;
+  --color-sidebar-active: #000000;
 
   --color-status-active: #067647;
   --color-status-active-bg: #ecfdf3;
@@ -21,7 +26,7 @@
   --color-status-soon: #b54708;
   --color-status-soon-bg: #fffaeb;
 
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
 }
 
 @layer base {
@@ -52,5 +57,10 @@
   select,
   textarea {
     font: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-brand) 55%, transparent);
+    color: var(--color-ink);
   }
 }

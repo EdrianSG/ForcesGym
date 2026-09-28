@@ -530,7 +530,7 @@ export function MemberDetailPage() {
                       onClick={() => setMonths(preset)}
                       className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                         months === preset
-                          ? 'border-ink bg-ink text-white'
+                          ? 'border-brand-dark bg-brand text-ink'
                           : 'border-line bg-surface text-ink hover:bg-canvas'
                       }`}
                     >

@@ -40,13 +40,19 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-canvas px-4">
+    <div className="flex min-h-svh items-center justify-center bg-[linear-gradient(180deg,#1B1B1B_0%,#000000_45%,#1B1B1B_100%)] px-4">
       <div className="w-full max-w-[400px]">
-        <div className="mb-8 flex justify-center">
-          <BrandMark inverted />
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <BrandMark size="lg" showText={false} />
+          <div className="text-center">
+            <p className="text-lg font-semibold tracking-tight text-brand">
+              Forces Gym
+            </p>
+            <p className="text-sm text-white/60">Panel administrativo</p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-8 shadow-card">
+        <div className="rounded-2xl border border-white/10 bg-surface p-8 shadow-card">
           <h1 className="text-lg font-semibold tracking-tight text-ink">
             Iniciar sesión
           </h1>
@@ -67,7 +73,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="admin@forcesgym.com"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-ink focus:ring-2 focus:ring-ink/10"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-brand focus:ring-2 focus:ring-brand/30"
               />
             </label>
 
@@ -83,7 +89,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-ink focus:ring-2 focus:ring-ink/10"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-brand focus:ring-2 focus:ring-brand/30"
               />
             </label>
 
@@ -95,15 +101,15 @@ export function LoginPage() {
           </form>
         </div>
 
-        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted">
+        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-white/55">
           <span
             className={cn(
               'size-2 rounded-full',
               isChecking
-                ? 'bg-amber-400 animate-pulse'
+                ? 'bg-brand animate-pulse'
                 : isOnline
-                  ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
-                  : 'bg-zinc-400',
+                  ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
+                  : 'bg-zinc-500',
             )}
           />
           <span>

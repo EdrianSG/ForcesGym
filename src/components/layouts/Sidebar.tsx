@@ -63,7 +63,7 @@ export function Sidebar({ open, onClose, onLogout }: SidebarProps) {
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-sidebar-active text-white'
+                    ? 'bg-brand text-ink'
                     : 'text-sidebar-muted hover:bg-sidebar-hover hover:text-white',
                 )
               }
@@ -108,7 +108,7 @@ export function Sidebar({ open, onClose, onLogout }: SidebarProps) {
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-white"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-brand"
           >
             <LogOut className="size-4" />
             Cerrar sesión
