@@ -1,64 +1,72 @@
-import type { FormEvent } from 'react'
-import { Edit, FileText, RefreshCw, Sparkles, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { StatusBadge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { downloadInvoicePDFDirectly, getInvoicesByMemberId } from '@/services/invoicesService'
-import { getMemberById, getMembers, updateMember } from '@/services/membersService'
-import { getPlans } from '@/services/plansService'
+import type { FormEvent } from "react";
+import { Edit, FileText, RefreshCw, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { MemberDetailSkeleton } from "@/components/skeletons/PageSkeletons";
+import { StatusBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  downloadInvoicePDFDirectly,
+  getInvoicesByMemberId,
+} from "@/services/invoicesService";
+import {
+  getMemberById,
+  getMembers,
+  updateMember,
+} from "@/services/membersService";
+import { getPlans } from "@/services/plansService";
 import {
   getSubscriptionsByMemberId,
   renewSubscription,
   type SubscriptionWithDetails,
-} from '@/services/subscriptionsService'
-import type { Invoice, MemberListItem, MembershipPlan } from '@/types'
-import { formatDate, formatMoney, todayISODate } from '@/utils/dates'
+} from "@/services/subscriptionsService";
+import type { Invoice, MemberListItem, MembershipPlan } from "@/types";
+import { formatDate, formatMoney, todayISODate } from "@/utils/dates";
 import {
   calculateEndDate,
   generateUniqueMembershipNumber,
   getMembershipStatus,
   isMembershipNumberTaken,
-} from '@/utils/membership'
+} from "@/utils/membership";
 
 const fieldClassName =
-  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink focus:ring-2 focus:ring-ink/10'
+  "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink focus:ring-2 focus:ring-ink/10";
 
-const DURATION_PRESETS = [1, 2, 3, 6, 12] as const
+const DURATION_PRESETS = [1, 2, 3, 6, 12] as const;
 
 export function MemberDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const [member, setMember] = useState<MemberListItem | null>(null)
-  const [history, setHistory] = useState<SubscriptionWithDetails[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
+  const { id } = useParams<{ id: string }>();
+  const [member, setMember] = useState<MemberListItem | null>(null);
+  const [history, setHistory] = useState<SubscriptionWithDetails[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Modal States
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [showRenewModal, setShowRenewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRenewModal, setShowRenewModal] = useState(false);
 
   // Edit Form State
-  const [editFullName, setEditFullName] = useState('')
-  const [editNumber, setEditNumber] = useState('')
-  const [editDni, setEditDni] = useState('')
-  const [editPhone, setEditPhone] = useState('')
-  const [existingNumbers, setExistingNumbers] = useState<string[]>([])
-  const [savingEdit, setSavingEdit] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
+  const [editFullName, setEditFullName] = useState("");
+  const [editNumber, setEditNumber] = useState("");
+  const [editDni, setEditDni] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [existingNumbers, setExistingNumbers] = useState<string[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Renew Form State
-  const [plans, setPlans] = useState<MembershipPlan[]>([])
-  const [selectedPlanId, setSelectedPlanId] = useState('')
-  const [startDate, setStartDate] = useState(todayISODate())
-  const [months, setMonths] = useState(1)
-  const [savingRenew, setSavingRenew] = useState(false)
-  const [renewError, setRenewError] = useState<string | null>(null)
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [startDate, setStartDate] = useState(todayISODate());
+  const [months, setMonths] = useState(1);
+  const [savingRenew, setSavingRenew] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
 
   function loadData() {
-    if (!id) return
-    setLoading(true)
+    if (!id) return;
+    setLoading(true);
 
     Promise.all([
       getMemberById(id),
@@ -67,75 +75,78 @@ export function MemberDetailPage() {
       getMembers(),
       getInvoicesByMemberId(id),
     ]).then(([m, h, pList, mList, invList]) => {
-      setMember(m)
-      setHistory(h)
-      setPlans(pList)
-      setInvoices(invList)
+      setMember(m);
+      setHistory(h);
+      setPlans(pList);
+      setInvoices(invList);
       setExistingNumbers(
-        mList.filter((item) => item.id !== id).map((item) => item.membership_number),
-      )
-      setLoading(false)
+        mList
+          .filter((item) => item.id !== id)
+          .map((item) => item.membership_number),
+      );
+      setLoading(false);
 
       if (m) {
-        setEditFullName(m.full_name)
-        setEditNumber(m.membership_number)
-        setEditDni(m.dni)
-        setEditPhone(m.phone)
+        setEditFullName(m.full_name);
+        setEditNumber(m.membership_number);
+        setEditDni(m.dni);
+        setEditPhone(m.phone);
       }
-    })
+    });
   }
 
   useEffect(() => {
-    loadData()
-  }, [id])
+    loadData();
+  }, [id]);
 
-  const activePlans = useMemo(() => plans.filter((p) => p.active), [plans])
-  const selectedPlan = activePlans.find((p) => p.id === selectedPlanId) ?? activePlans[0] ?? null
+  const activePlans = useMemo(() => plans.filter((p) => p.active), [plans]);
+  const selectedPlan =
+    activePlans.find((p) => p.id === selectedPlanId) ?? activePlans[0] ?? null;
 
   const isCodeTaken = useMemo(
     () => isMembershipNumberTaken(editNumber, existingNumbers),
     [editNumber, existingNumbers],
-  )
+  );
 
   const renewPreview = useMemo(() => {
-    if (!selectedPlan || !startDate || months < 1) return null
+    if (!selectedPlan || !startDate || months < 1) return null;
     return {
       endDate: calculateEndDate(startDate, selectedPlan.duration_days, months),
       totalDays: selectedPlan.duration_days * months,
       totalPrice: selectedPlan.price * months,
-    }
-  }, [months, selectedPlan, startDate])
+    };
+  }, [months, selectedPlan, startDate]);
 
   function handleOpenRenew() {
     if (member?.current_end_date) {
       // Suggest day after current end date if valid
       try {
-        const nextDay = new Date(member.current_end_date)
-        nextDay.setDate(nextDay.getDate() + 1)
-        const iso = nextDay.toISOString().split('T')[0]
+        const nextDay = new Date(member.current_end_date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const iso = nextDay.toISOString().split("T")[0];
         if (iso && iso > todayISODate()) {
-          setStartDate(iso)
+          setStartDate(iso);
         } else {
-          setStartDate(todayISODate())
+          setStartDate(todayISODate());
         }
       } catch {
-        setStartDate(todayISODate())
+        setStartDate(todayISODate());
       }
     } else {
-      setStartDate(todayISODate())
+      setStartDate(todayISODate());
     }
     if (activePlans[0]) {
-      setSelectedPlanId(activePlans[0].id)
+      setSelectedPlanId(activePlans[0].id);
     }
-    setShowRenewModal(true)
+    setShowRenewModal(true);
   }
 
   async function handleSaveEdit(e: FormEvent) {
-    e.preventDefault()
-    if (!member || isCodeTaken || savingEdit) return
+    e.preventDefault();
+    if (!member || isCodeTaken || savingEdit) return;
 
-    setSavingEdit(true)
-    setEditError(null)
+    setSavingEdit(true);
+    setEditError(null);
 
     try {
       await updateMember(member.id, {
@@ -143,22 +154,24 @@ export function MemberDetailPage() {
         membership_number: editNumber.trim(),
         dni: editDni.trim(),
         phone: editPhone.trim(),
-      })
-      setShowEditModal(false)
-      loadData()
+      });
+      setShowEditModal(false);
+      loadData();
     } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : 'Error al actualizar el cliente.')
+      setEditError(
+        err instanceof Error ? err.message : "Error al actualizar el cliente.",
+      );
     } finally {
-      setSavingEdit(false)
+      setSavingEdit(false);
     }
   }
 
   async function handleSaveRenew(e: FormEvent) {
-    e.preventDefault()
-    if (!member || !selectedPlan || !renewPreview || savingRenew) return
+    e.preventDefault();
+    if (!member || !selectedPlan || !renewPreview || savingRenew) return;
 
-    setSavingRenew(true)
-    setRenewError(null)
+    setSavingRenew(true);
+    setRenewError(null);
 
     try {
       await renewSubscription({
@@ -169,25 +182,20 @@ export function MemberDetailPage() {
         price_paid: renewPreview.totalPrice,
         plan_name: selectedPlan.name,
         member_name: member.full_name,
-      })
-      setShowRenewModal(false)
-      loadData()
+      });
+      setShowRenewModal(false);
+      loadData();
     } catch (err: unknown) {
-      setRenewError(err instanceof Error ? err.message : 'Error al renovar la membresía.')
+      setRenewError(
+        err instanceof Error ? err.message : "Error al renovar la membresía.",
+      );
     } finally {
-      setSavingRenew(false)
+      setSavingRenew(false);
     }
   }
 
   if (loading) {
-    return (
-      <div>
-        <PageHeader title="Cargando cliente…" />
-        <Card className="p-8 text-center text-muted">
-          Obteniendo información del cliente…
-        </Card>
-      </div>
-    )
+    return <MemberDetailSkeleton />;
   }
 
   if (!member) {
@@ -198,7 +206,7 @@ export function MemberDetailPage() {
           Volver a clientes
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -223,7 +231,9 @@ export function MemberDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
-            <h2 className="text-sm font-semibold tracking-tight">Información del cliente</h2>
+            <h2 className="text-sm font-semibold tracking-tight">
+              Información del cliente
+            </h2>
             <button
               type="button"
               onClick={() => setShowEditModal(true)}
@@ -247,7 +257,9 @@ export function MemberDetailPage() {
                 Estado actual
               </dt>
               <dd className="mt-1">
-                <StatusBadge status={getMembershipStatus(member.current_end_date)} />
+                <StatusBadge
+                  status={getMembershipStatus(member.current_end_date)}
+                />
               </dd>
             </div>
             <div>
@@ -260,20 +272,24 @@ export function MemberDetailPage() {
               <dt className="text-xs font-medium tracking-wide text-muted uppercase">
                 Teléfono
               </dt>
-              <dd className="mt-1 text-sm">{member.phone || '—'}</dd>
+              <dd className="mt-1 text-sm">{member.phone || "—"}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium tracking-wide text-muted uppercase">
                 Plan actual
               </dt>
-              <dd className="mt-1 text-sm font-medium">{member.current_plan_name ?? '—'}</dd>
+              <dd className="mt-1 text-sm font-medium">
+                {member.current_plan_name ?? "—"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs font-medium tracking-wide text-muted uppercase">
                 Inicio
               </dt>
               <dd className="mt-1 text-sm">
-                {member.current_start_date ? formatDate(member.current_start_date) : '—'}
+                {member.current_start_date
+                  ? formatDate(member.current_start_date)
+                  : "—"}
               </dd>
             </div>
             <div>
@@ -281,7 +297,9 @@ export function MemberDetailPage() {
                 Vencimiento
               </dt>
               <dd className="mt-1 text-sm font-semibold">
-                {member.current_end_date ? formatDate(member.current_end_date) : '—'}
+                {member.current_end_date
+                  ? formatDate(member.current_end_date)
+                  : "—"}
               </dd>
             </div>
           </dl>
@@ -305,13 +323,15 @@ export function MemberDetailPage() {
               {history.map((subscription) => (
                 <li key={subscription.id} className="px-5 py-3.5">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{subscription.plan_name}</p>
+                    <p className="text-sm font-medium">
+                      {subscription.plan_name}
+                    </p>
                     <p className="text-sm font-semibold text-ink">
                       {formatMoney(subscription.price_paid)}
                     </p>
                   </div>
                   <p className="mt-0.5 text-xs text-muted">
-                    Desde: {formatDate(subscription.start_date)} hasta{' '}
+                    Desde: {formatDate(subscription.start_date)} hasta{" "}
                     {formatDate(subscription.end_date)}
                   </p>
                 </li>
@@ -331,7 +351,8 @@ export function MemberDetailPage() {
         </div>
         {invoices.length === 0 ? (
           <p className="p-5 text-sm text-muted">
-            No hay boletas emitidas aún para este cliente. Se generará una automáticamente en su próxima renovación o registro.
+            No hay boletas emitidas aún para este cliente. Se generará una
+            automáticamente en su próxima renovación o registro.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -357,8 +378,12 @@ export function MemberDetailPage() {
                       #{inv.client_code}
                     </td>
                     <td className="px-5 py-3 text-muted">{inv.plan_name}</td>
-                    <td className="px-5 py-3 text-muted">{formatMoney(inv.subtotal)}</td>
-                    <td className="px-5 py-3 text-muted">{formatMoney(inv.igv)}</td>
+                    <td className="px-5 py-3 text-muted">
+                      {formatMoney(inv.subtotal)}
+                    </td>
+                    <td className="px-5 py-3 text-muted">
+                      {formatMoney(inv.igv)}
+                    </td>
                     <td className="px-5 py-3 font-semibold text-ink">
                       {formatMoney(inv.total)}
                     </td>
@@ -411,7 +436,9 @@ export function MemberDetailPage() {
                     type="button"
                     variant="secondary"
                     onClick={() =>
-                      setEditNumber(generateUniqueMembershipNumber(existingNumbers))
+                      setEditNumber(
+                        generateUniqueMembershipNumber(existingNumbers),
+                      )
                     }
                     className="shrink-0"
                   >
@@ -420,13 +447,16 @@ export function MemberDetailPage() {
                 </div>
                 {isCodeTaken ? (
                   <p className="mt-1 text-xs text-status-expired font-medium">
-                    ⚠️ El código &quot;{editNumber}&quot; ya pertenece a otro socio.
+                    ⚠️ El código &quot;{editNumber}&quot; ya pertenece a otro
+                    socio.
                   </p>
                 ) : null}
               </div>
 
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Nombre completo</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Nombre completo
+                </span>
                 <input
                   required
                   value={editFullName}
@@ -446,7 +476,9 @@ export function MemberDetailPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Teléfono</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Teléfono
+                </span>
                 <input
                   value={editPhone}
                   onChange={(e) => setEditPhone(e.target.value)}
@@ -455,12 +487,18 @@ export function MemberDetailPage() {
               </label>
 
               {editError ? (
-                <p className="text-xs font-medium text-status-expired">⚠️ {editError}</p>
+                <p className="text-xs font-medium text-status-expired">
+                  ⚠️ {editError}
+                </p>
               ) : null}
 
               <div className="flex gap-2 pt-2">
-                <Button type="submit" disabled={savingEdit || isCodeTaken} className="flex-1">
-                  {savingEdit ? 'Guardando…' : 'Guardar cambios'}
+                <Button
+                  type="submit"
+                  disabled={savingEdit || isCodeTaken}
+                  className="flex-1"
+                >
+                  {savingEdit ? "Guardando…" : "Guardar cambios"}
                 </Button>
                 <Button
                   type="button"
@@ -495,7 +533,9 @@ export function MemberDetailPage() {
 
             <form onSubmit={handleSaveRenew} className="space-y-4">
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Selecciona un Plan</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Selecciona un Plan
+                </span>
                 <select
                   value={selectedPlanId}
                   onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -510,7 +550,9 @@ export function MemberDetailPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Fecha de inicio</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Fecha de inicio
+                </span>
                 <input
                   type="date"
                   required
@@ -521,7 +563,9 @@ export function MemberDetailPage() {
               </label>
 
               <div>
-                <span className="mb-1.5 block text-sm font-medium">Duración</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Duración
+                </span>
                 <div className="flex flex-wrap gap-2">
                   {DURATION_PRESETS.map((preset) => (
                     <button
@@ -530,11 +574,11 @@ export function MemberDetailPage() {
                       onClick={() => setMonths(preset)}
                       className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                         months === preset
-                          ? 'border-brand-dark bg-brand text-ink'
-                          : 'border-line bg-surface text-ink hover:bg-canvas'
+                          ? "border-brand-dark bg-brand text-ink"
+                          : "border-line bg-surface text-ink hover:bg-canvas"
                       }`}
                     >
-                      {preset} {preset === 1 ? 'mes' : 'meses'}
+                      {preset} {preset === 1 ? "mes" : "meses"}
                     </button>
                   ))}
                 </div>
@@ -543,23 +587,31 @@ export function MemberDetailPage() {
               {renewPreview ? (
                 <div className="rounded-xl border border-line bg-canvas/60 p-3.5 text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted">Nueva fecha de vencimiento:</span>
-                    <span className="font-semibold text-ink">{formatDate(renewPreview.endDate)}</span>
+                    <span className="text-muted">
+                      Nueva fecha de vencimiento:
+                    </span>
+                    <span className="font-semibold text-ink">
+                      {formatDate(renewPreview.endDate)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted">Monto total a cobrar:</span>
-                    <span className="font-bold text-ink text-sm">{formatMoney(renewPreview.totalPrice)}</span>
+                    <span className="font-bold text-ink text-sm">
+                      {formatMoney(renewPreview.totalPrice)}
+                    </span>
                   </div>
                 </div>
               ) : null}
 
               {renewError ? (
-                <p className="text-xs font-medium text-status-expired">⚠️ {renewError}</p>
+                <p className="text-xs font-medium text-status-expired">
+                  ⚠️ {renewError}
+                </p>
               ) : null}
 
               <div className="flex gap-2 pt-2">
                 <Button type="submit" disabled={savingRenew} className="flex-1">
-                  {savingRenew ? 'Registrando…' : 'Registrar renovación'}
+                  {savingRenew ? "Registrando…" : "Registrar renovación"}
                 </Button>
                 <Button
                   type="button"
@@ -574,5 +626,5 @@ export function MemberDetailPage() {
         </div>
       ) : null}
     </div>
-  )
+  );
 }

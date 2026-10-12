@@ -1,92 +1,103 @@
-import type { FormEvent } from 'react'
-import { Edit, Plus, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { createPlan, getPlans, togglePlanActive, updatePlan } from '@/services/plansService'
-import type { MembershipPlan } from '@/types'
-import { formatMoney } from '@/utils/dates'
-import { cn } from '@/utils/cn'
+import type { FormEvent } from "react";
+import { Edit, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  createPlan,
+  getPlans,
+  togglePlanActive,
+  updatePlan,
+} from "@/services/plansService";
+import type { MembershipPlan } from "@/types";
+import { formatMoney } from "@/utils/dates";
+import { cn } from "@/utils/cn";
 
 export function PlansPage() {
-  const [plans, setPlans] = useState<MembershipPlan[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null)
-  const [showNewModal, setShowNewModal] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     void getPlans().then((data) => {
       if (active) {
-        setPlans(data)
-        setLoading(false)
+        setPlans(data);
+        setLoading(false);
       }
-    })
+    });
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   async function handleTogglePlan(id: string, currentActive: boolean) {
-    await togglePlanActive(id, !currentActive)
+    await togglePlanActive(id, !currentActive);
     setPlans((prev) =>
       prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p)),
-    )
+    );
   }
 
   async function handleSavePlan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!editingPlan) return
+    event.preventDefault();
+    if (!editingPlan) return;
 
-    setSaving(true)
-    setError(null)
+    setSaving(true);
+    setError(null);
 
-    const formData = new FormData(event.currentTarget)
-    const name = String(formData.get('name') ?? '').trim()
-    const price = Number(formData.get('price'))
-    const duration_days = Number(formData.get('duration_days'))
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const price = Number(formData.get("price"));
+    const duration_days = Number(formData.get("duration_days"));
 
     try {
-      await updatePlan(editingPlan.id, { name, price, duration_days })
+      await updatePlan(editingPlan.id, { name, price, duration_days });
       setPlans((prev) =>
         prev.map((p) =>
           p.id === editingPlan.id ? { ...p, name, price, duration_days } : p,
         ),
-      )
-      setEditingPlan(null)
+      );
+      setEditingPlan(null);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Error al actualizar el plan.',
-      )
+        err instanceof Error ? err.message : "Error al actualizar el plan.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
 
-    setSaving(true)
-    setError(null)
+    setSaving(true);
+    setError(null);
 
-    const formData = new FormData(event.currentTarget)
-    const name = String(formData.get('name') ?? '').trim()
-    const price = Number(formData.get('price'))
-    const duration_days = Number(formData.get('duration_days'))
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const price = Number(formData.get("price"));
+    const duration_days = Number(formData.get("duration_days"));
 
     try {
-      const created = await createPlan({ name, price, duration_days, active: true })
-      setPlans((prev) => [...prev, created])
-      setShowNewModal(false)
+      const created = await createPlan({
+        name,
+        price,
+        duration_days,
+        active: true,
+      });
+      setPlans((prev) => [...prev, created]);
+      setShowNewModal(false);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Error al crear el nuevo plan.',
-      )
+        err instanceof Error ? err.message : "Error al crear el nuevo plan.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -105,7 +116,10 @@ export function PlansPage() {
 
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table
+            aria-busy={loading}
+            className="w-full min-w-[640px] text-left text-sm"
+          >
             <thead className="border-b border-line bg-canvas/70 text-xs font-medium tracking-wide text-muted uppercase">
               <tr>
                 <th className="px-4 py-3">Nombre</th>
@@ -117,29 +131,32 @@ export function PlansPage() {
             </thead>
             <tbody className="divide-y divide-line">
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-muted">
-                    Cargando catálogo de planes…
-                  </td>
-                </tr>
+                <TableSkeleton
+                  columns={5}
+                  label="Cargando catálogo de planes…"
+                />
               ) : (
                 plans.map((plan) => (
                   <tr key={plan.id} className="hover:bg-canvas/60">
-                    <td className="px-4 py-3 font-medium text-ink">{plan.name}</td>
+                    <td className="px-4 py-3 font-medium text-ink">
+                      {plan.name}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-ink">
                       {formatMoney(plan.price)}
                     </td>
-                    <td className="px-4 py-3 text-muted">{plan.duration_days} días</td>
+                    <td className="px-4 py-3 text-muted">
+                      {plan.duration_days} días
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={cn(
-                          'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                          "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
                           plan.active
-                            ? 'bg-status-active-bg text-status-active'
-                            : 'bg-canvas text-muted',
+                            ? "bg-status-active-bg text-status-active"
+                            : "bg-canvas text-muted",
                         )}
                       >
-                        {plan.active ? 'Activo' : 'Inactivo'}
+                        {plan.active ? "Activo" : "Inactivo"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -158,7 +175,7 @@ export function PlansPage() {
                           onClick={() => handleTogglePlan(plan.id, plan.active)}
                           className="text-xs font-medium text-muted underline-offset-4 hover:text-ink hover:underline"
                         >
-                          {plan.active ? 'Desactivar' : 'Activar'}
+                          {plan.active ? "Desactivar" : "Activar"}
                         </button>
                       </div>
                     </td>
@@ -231,7 +248,9 @@ export function PlansPage() {
               </label>
 
               {error ? (
-                <p className="text-sm font-medium text-status-expired">{error}</p>
+                <p className="text-sm font-medium text-status-expired">
+                  {error}
+                </p>
               ) : null}
 
               <div className="flex justify-end gap-3 pt-2">
@@ -243,7 +262,7 @@ export function PlansPage() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Crear Plan'}
+                  {saving ? "Guardando…" : "Crear Plan"}
                 </Button>
               </div>
             </form>
@@ -311,7 +330,9 @@ export function PlansPage() {
               </label>
 
               {error ? (
-                <p className="text-sm font-medium text-status-expired">{error}</p>
+                <p className="text-sm font-medium text-status-expired">
+                  {error}
+                </p>
               ) : null}
 
               <div className="flex justify-end gap-3 pt-2">
@@ -323,7 +344,7 @@ export function PlansPage() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Guardar Cambios'}
+                  {saving ? "Guardando…" : "Guardar Cambios"}
                 </Button>
               </div>
             </form>
@@ -331,5 +352,5 @@ export function PlansPage() {
         </div>
       ) : null}
     </div>
-  )
+  );
 }

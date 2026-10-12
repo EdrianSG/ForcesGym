@@ -1,35 +1,36 @@
-import { Plus, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { StatusBadge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { getMembers } from '@/services/membersService'
-import type { MemberListItem } from '@/types'
-import { formatDate } from '@/utils/dates'
-import { getMembershipStatus } from '@/utils/membership'
+import { Plus, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
+import { StatusBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { getMembers } from "@/services/membersService";
+import type { MemberListItem } from "@/types";
+import { formatDate } from "@/utils/dates";
+import { getMembershipStatus } from "@/utils/membership";
 
 export function MembersPage() {
-  const [query, setQuery] = useState('')
-  const [members, setMembers] = useState<MemberListItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState("");
+  const [members, setMembers] = useState<MemberListItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true
-    setLoading(true)
+    let active = true;
+    setLoading(true);
 
     void getMembers(query).then((data) => {
       if (active) {
-        setMembers(data)
-        setLoading(false)
+        setMembers(data);
+        setLoading(false);
       }
-    })
+    });
 
     return () => {
-      active = false
-    }
-  }, [query])
+      active = false;
+    };
+  }, [query]);
 
   return (
     <div>
@@ -61,7 +62,10 @@ export function MembersPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-center text-sm">
+          <table
+            aria-busy={loading}
+            className="w-full min-w-[760px] text-center text-sm"
+          >
             <thead className="border-b border-line bg-canvas/70 text-xs font-medium tracking-wide text-muted uppercase">
               <tr>
                 <th className="px-4 py-3">Membresía</th>
@@ -76,11 +80,11 @@ export function MembersPage() {
             </thead>
             <tbody className="divide-y divide-line">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-muted">
-                    Cargando clientes…
-                  </td>
-                </tr>
+                <TableSkeleton
+                  columns={8}
+                  label="Cargando clientes…"
+                  align="center"
+                />
               ) : members.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-muted">
@@ -95,14 +99,16 @@ export function MembersPage() {
                         {member.membership_number}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium">{member.full_name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {member.full_name}
+                    </td>
                     <td className="px-4 py-3 text-muted">{member.dni}</td>
                     <td className="px-4 py-3 text-muted">{member.phone}</td>
                     <td className="px-4 py-3">{member.current_plan_name}</td>
                     <td className="px-4 py-3">
                       {member.current_end_date
                         ? formatDate(member.current_end_date)
-                        : '—'}
+                        : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-center">
@@ -127,5 +133,5 @@ export function MembersPage() {
         </div>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,89 +1,107 @@
-import type { FormEvent } from 'react'
-import { Sparkles } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { createMemberWithSubscription, getMembers } from '@/services/membersService'
-import { getPlans } from '@/services/plansService'
-import type { MembershipPlan } from '@/types'
-import { formatDate, formatMoney, todayISODate } from '@/utils/dates'
+import type { FormEvent } from "react";
+import { Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { MemberFormSkeleton } from "@/components/skeletons/PageSkeletons";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  createMemberWithSubscription,
+  getMembers,
+} from "@/services/membersService";
+import { getPlans } from "@/services/plansService";
+import type { MembershipPlan } from "@/types";
+import { formatDate, formatMoney, todayISODate } from "@/utils/dates";
 import {
   calculateEndDate,
   generateUniqueMembershipNumber,
   isMembershipNumberTaken,
-} from '@/utils/membership'
-import { cn } from '@/utils/cn'
+} from "@/utils/membership";
+import { cn } from "@/utils/cn";
 
 const fieldClassName =
-  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink focus:ring-2 focus:ring-ink/10'
+  "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink focus:ring-2 focus:ring-ink/10";
 
-const DURATION_PRESETS = [1, 2, 3, 6, 12] as const
+const DURATION_PRESETS = [1, 2, 3, 6, 12] as const;
 
 export function MemberNewPage() {
-  const navigate = useNavigate()
-  const [plans, setPlans] = useState<MembershipPlan[]>([])
-  const [existingNumbers, setExistingNumbers] = useState<string[]>([])
-  const [planId, setPlanId] = useState('')
-  const [startDate, setStartDate] = useState(todayISODate())
-  const [months, setMonths] = useState(1)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [existingNumbers, setExistingNumbers] = useState<string[]>([]);
+  const [membershipNumber, setMembershipNumber] = useState("");
+  const [planId, setPlanId] = useState("");
+  const [startDate, setStartDate] = useState(todayISODate());
+  const [months, setMonths] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void getPlans().then((data) => setPlans(data))
-    void getMembers().then((data) =>
-      setExistingNumbers(data.map((m) => m.membership_number)),
-    )
-  }, [])
+    let active = true;
+    void Promise.all([getPlans(), getMembers()])
+      .then(([planList, memberList]) => {
+        if (!active) return;
+        setPlans(planList);
+        const numbers = memberList.map((m) => m.membership_number);
+        setExistingNumbers(numbers);
+        setMembershipNumber(generateUniqueMembershipNumber(numbers));
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Error al cargar los datos del registro.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const activePlans = useMemo(() => plans.filter((p) => p.active), [plans])
-
-  const [membershipNumber, setMembershipNumber] = useState('')
-
-  useEffect(() => {
-    if (existingNumbers.length >= 0 && !membershipNumber) {
-      setMembershipNumber(generateUniqueMembershipNumber(existingNumbers))
-    }
-  }, [existingNumbers, membershipNumber])
+  const activePlans = useMemo(() => plans.filter((p) => p.active), [plans]);
 
   const isTaken = useMemo(
     () => isMembershipNumberTaken(membershipNumber, existingNumbers),
     [membershipNumber, existingNumbers],
-  )
+  );
 
-  const selectedPlan = activePlans.find((plan) => plan.id === planId) ?? null
+  const selectedPlan = activePlans.find((plan) => plan.id === planId) ?? null;
 
   const preview = useMemo(() => {
     if (!selectedPlan || !startDate || months < 1) {
-      return null
+      return null;
     }
 
     return {
       endDate: calculateEndDate(startDate, selectedPlan.duration_days, months),
       totalDays: selectedPlan.duration_days * months,
       totalPrice: selectedPlan.price * months,
-    }
-  }, [months, selectedPlan, startDate])
+    };
+  }, [months, selectedPlan, startDate]);
 
   function handleGenerateCode() {
-    setMembershipNumber(generateUniqueMembershipNumber(existingNumbers))
+    setMembershipNumber(generateUniqueMembershipNumber(existingNumbers));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
     if (isTaken || !selectedPlan || !preview || saving) {
-      return
+      return;
     }
 
-    setSaving(true)
-    setError(null)
+    setSaving(true);
+    setError(null);
 
-    const formData = new FormData(event.currentTarget)
-    const full_name = String(formData.get('full_name') ?? '').trim()
-    const dni = String(formData.get('dni') ?? '').trim()
-    const phone = String(formData.get('phone') ?? '').trim()
+    const formData = new FormData(event.currentTarget);
+    const full_name = String(formData.get("full_name") ?? "").trim();
+    const dni = String(formData.get("dni") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
 
     try {
       const created = await createMemberWithSubscription({
@@ -96,18 +114,28 @@ export function MemberNewPage() {
         end_date: preview.endDate,
         price_paid: preview.totalPrice,
         plan_name: selectedPlan.name,
-      })
+      });
 
-      void navigate(`/members/${created.id}`)
+      void navigate(`/members/${created.id}`);
     } catch (err: unknown) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Error al registrar el cliente.',
-      )
+        err instanceof Error ? err.message : "Error al registrar el cliente.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader
+          title="Nuevo cliente"
+          description="Registra al cliente y define por cuánto tiempo inicia su membresía."
+        />
+        <MemberFormSkeleton />
+      </div>
+    );
   }
 
   return (
@@ -133,12 +161,14 @@ export function MemberNewPage() {
                     name="membership_number"
                     required
                     value={membershipNumber}
-                    onChange={(event) => setMembershipNumber(event.target.value)}
+                    onChange={(event) =>
+                      setMembershipNumber(event.target.value)
+                    }
                     placeholder="1915"
                     className={cn(
                       fieldClassName,
                       isTaken &&
-                        'border-status-expired focus:border-status-expired focus:ring-status-expired/10',
+                        "border-status-expired focus:border-status-expired focus:ring-status-expired/10",
                     )}
                   />
                   <Button
@@ -154,7 +184,8 @@ export function MemberNewPage() {
                 </div>
                 {isTaken ? (
                   <p className="mt-1.5 text-xs font-medium text-status-expired">
-                    ⚠️ El código &quot;{membershipNumber.trim()}&quot; ya existe. Genera otro o escribe uno distinto.
+                    ⚠️ El código &quot;{membershipNumber.trim()}&quot; ya
+                    existe. Genera otro o escribe uno distinto.
                   </p>
                 ) : (
                   <p className="mt-1.5 text-xs text-muted">
@@ -184,7 +215,9 @@ export function MemberNewPage() {
                 />
               </label>
               <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-sm font-medium">Teléfono</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Teléfono
+                </span>
                 <input
                   name="phone"
                   placeholder="999999999"
@@ -213,8 +246,8 @@ export function MemberNewPage() {
                   </option>
                   {activePlans.map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} · {formatMoney(plan.price)} / {plan.duration_days}{' '}
-                      días
+                      {plan.name} · {formatMoney(plan.price)} /{" "}
+                      {plan.duration_days} días
                     </option>
                   ))}
                 </select>
@@ -245,13 +278,13 @@ export function MemberNewPage() {
                       type="button"
                       onClick={() => setMonths(preset)}
                       className={cn(
-                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                        "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
                         months === preset
-                          ? 'border-brand-dark bg-brand text-ink'
-                          : 'border-line bg-surface text-ink hover:bg-canvas',
+                          ? "border-brand-dark bg-brand text-ink"
+                          : "border-line bg-surface text-ink hover:bg-canvas",
                       )}
                     >
-                      {preset} {preset === 1 ? 'mes' : 'meses'}
+                      {preset} {preset === 1 ? "mes" : "meses"}
                     </button>
                   ))}
                 </div>
@@ -267,8 +300,12 @@ export function MemberNewPage() {
                     required
                     value={months}
                     onChange={(event) => {
-                      const value = Number(event.target.value)
-                      setMonths(Number.isNaN(value) ? 1 : Math.min(24, Math.max(1, value)))
+                      const value = Number(event.target.value);
+                      setMonths(
+                        Number.isNaN(value)
+                          ? 1
+                          : Math.min(24, Math.max(1, value)),
+                      );
                     }}
                     className={fieldClassName}
                   />
@@ -282,7 +319,7 @@ export function MemberNewPage() {
                   Vencimiento
                 </p>
                 <p className="mt-1 text-sm font-semibold">
-                  {preview ? formatDate(preview.endDate) : '—'}
+                  {preview ? formatDate(preview.endDate) : "—"}
                 </p>
               </div>
               <div>
@@ -291,8 +328,8 @@ export function MemberNewPage() {
                 </p>
                 <p className="mt-1 text-sm font-semibold">
                   {preview
-                    ? `${months} ${months === 1 ? 'mes' : 'meses'} · ${preview.totalDays} días`
-                    : '—'}
+                    ? `${months} ${months === 1 ? "mes" : "meses"} · ${preview.totalDays} días`
+                    : "—"}
                 </p>
               </div>
               <div>
@@ -300,26 +337,30 @@ export function MemberNewPage() {
                   Total a registrar
                 </p>
                 <p className="mt-1 text-sm font-semibold">
-                  {preview ? formatMoney(preview.totalPrice) : '—'}
+                  {preview ? formatMoney(preview.totalPrice) : "—"}
                 </p>
               </div>
             </div>
           </section>
 
           {error ? (
-            <p className="text-sm text-status-expired font-medium">⚠️ {error}</p>
+            <p className="text-sm text-status-expired font-medium">
+              ⚠️ {error}
+            </p>
           ) : null}
 
           <div className="flex gap-2">
             <Button type="submit" disabled={saving || isTaken}>
-              {saving ? 'Guardando cliente…' : 'Guardar cliente'}
+              {saving ? "Guardando cliente…" : "Guardar cliente"}
             </Button>
             <Link to="/members">
-              <Button type="button" variant="secondary">Cancelar</Button>
+              <Button type="button" variant="secondary">
+                Cancelar
+              </Button>
             </Link>
           </div>
         </form>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,74 +1,73 @@
-import { AlertTriangle, Clock3, UserRound, Users } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { StatusBadge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { getMembers } from '@/services/membersService'
+import { AlertTriangle, Clock3, UserRound, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { DashboardSkeleton } from "@/components/skeletons/PageSkeletons";
+import { StatusBadge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { getMembers } from "@/services/membersService";
 import {
   getSubscriptions,
   type SubscriptionWithDetails,
-} from '@/services/subscriptionsService'
-import type { MemberListItem } from '@/types'
-import { formatDate, formatMoney } from '@/utils/dates'
-import { getMembershipStatus } from '@/utils/membership'
+} from "@/services/subscriptionsService";
+import type { MemberListItem } from "@/types";
+import { formatDate, formatMoney } from "@/utils/dates";
+import { getMembershipStatus } from "@/utils/membership";
 
 export function DashboardPage() {
-  const [members, setMembers] = useState<MemberListItem[]>([])
-  const [subscriptions, setSubscriptions] = useState<
-    SubscriptionWithDetails[]
-  >([])
-  const [loading, setLoading] = useState(true)
+  const [members, setMembers] = useState<MemberListItem[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionWithDetails[]>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true
-    setLoading(true)
+    let active = true;
 
     Promise.all([getMembers(), getSubscriptions()]).then(([mList, sList]) => {
       if (active) {
-        setMembers(mList)
-        setSubscriptions(sList)
-        setLoading(false)
+        setMembers(mList);
+        setSubscriptions(sList);
+        setLoading(false);
       }
-    })
+    });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   const stats = useMemo(
     () => [
       {
-        label: 'Clientes registrados',
+        label: "Clientes registrados",
         value: members.length,
         icon: Users,
       },
       {
-        label: 'Membresías activas',
+        label: "Membresías activas",
         value: members.filter(
-          (m) => getMembershipStatus(m.current_end_date) === 'ACTIVO',
+          (m) => getMembershipStatus(m.current_end_date) === "ACTIVO",
         ).length,
         icon: UserRound,
       },
       {
-        label: 'Membresías vencidas',
+        label: "Membresías vencidas",
         value: members.filter(
-          (m) => getMembershipStatus(m.current_end_date) === 'VENCIDO',
+          (m) => getMembershipStatus(m.current_end_date) === "VENCIDO",
         ).length,
         icon: AlertTriangle,
       },
       {
-        label: 'Vencen próximamente',
+        label: "Vencen próximamente",
         value: members.filter(
-          (m) =>
-            getMembershipStatus(m.current_end_date) === 'PRÓXIMO A VENCER',
+          (m) => getMembershipStatus(m.current_end_date) === "PRÓXIMO A VENCER",
         ).length,
         icon: Clock3,
       },
     ],
     [members],
-  )
+  );
 
   const latestRenewals = useMemo(
     () =>
@@ -79,15 +78,15 @@ export function DashboardPage() {
         )
         .slice(0, 5),
     [subscriptions],
-  )
+  );
 
   const expiringSoon = useMemo(
     () =>
       members.filter(
-        (m) => getMembershipStatus(m.current_end_date) === 'PRÓXIMO A VENCER',
+        (m) => getMembershipStatus(m.current_end_date) === "PRÓXIMO A VENCER",
       ),
     [members],
-  )
+  );
   return (
     <div>
       <PageHeader
@@ -96,9 +95,7 @@ export function DashboardPage() {
       />
 
       {loading ? (
-        <Card className="p-8 text-center text-muted">
-          Cargando datos del dashboard…
-        </Card>
+        <DashboardSkeleton />
       ) : (
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -108,8 +105,10 @@ export function DashboardPage() {
                   <p className="text-sm text-muted">{label}</p>
                   <Icon className="size-4 text-muted" />
                 </div>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
-                </Card>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">
+                  {value}
+                </p>
+              </Card>
             ))}
           </section>
 
@@ -129,7 +128,8 @@ export function DashboardPage() {
                         {subscription.member_name}
                       </p>
                       <p className="text-xs text-muted">
-                        {subscription.plan_name} · {formatDate(subscription.start_date)}
+                        {subscription.plan_name} ·{" "}
+                        {formatDate(subscription.start_date)}
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-medium">
@@ -142,7 +142,9 @@ export function DashboardPage() {
 
             <Card className="lg:col-span-2">
               <div className="border-b border-line px-5 py-4">
-                <h2 className="text-sm font-semibold">Clientes próximos a vencer</h2>
+                <h2 className="text-sm font-semibold">
+                  Clientes próximos a vencer
+                </h2>
               </div>
               {expiringSoon.length === 0 ? (
                 <p className="px-5 py-8 text-sm text-muted">
@@ -177,5 +179,5 @@ export function DashboardPage() {
         </>
       )}
     </div>
-  )
+  );
 }

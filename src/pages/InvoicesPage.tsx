@@ -1,51 +1,52 @@
-import { FileText, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Card } from '@/components/ui/Card'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { downloadInvoicePDFDirectly, getAllInvoices } from '@/services/invoicesService'
-import type { Invoice } from '@/types'
-import { formatDate, formatMoney } from '@/utils/dates'
+import { FileText, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  downloadInvoicePDFDirectly,
+  getAllInvoices,
+} from "@/services/invoicesService";
+import type { Invoice } from "@/types";
+import { formatDate, formatMoney } from "@/utils/dates";
 
 export function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [query, setQuery] = useState('')
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    let active = true
+    let active = true;
     getAllInvoices()
       .then((data) => {
         if (active) {
-          setInvoices(Array.isArray(data) ? data : [])
-          setLoading(false)
+          setInvoices(Array.isArray(data) ? data : []);
+          setLoading(false);
         }
       })
       .catch((err) => {
-        console.error('Error al cargar boletas:', err)
+        console.error("Error al cargar boletas:", err);
         if (active) {
-          setInvoices([])
-          setLoading(false)
+          setInvoices([]);
+          setLoading(false);
         }
-      })
+      });
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   const filteredInvoices = invoices.filter((inv) => {
-    const q = query.trim().toLowerCase()
-    if (!q) return true
-    const num = String(inv.invoice_number ?? '').toLowerCase()
-    const code = String(inv.client_code ?? '').toLowerCase()
-    const name = String(inv.client_name ?? '').toLowerCase()
-    const doc = String(inv.client_document ?? '').toLowerCase()
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const num = String(inv.invoice_number ?? "").toLowerCase();
+    const code = String(inv.client_code ?? "").toLowerCase();
+    const name = String(inv.client_name ?? "").toLowerCase();
+    const doc = String(inv.client_document ?? "").toLowerCase();
     return (
-      num.includes(q) ||
-      code.includes(q) ||
-      name.includes(q) ||
-      doc.includes(q)
-    )
-  })
+      num.includes(q) || code.includes(q) || name.includes(q) || doc.includes(q)
+    );
+  });
 
   return (
     <div>
@@ -69,7 +70,10 @@ export function InvoicesPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left text-sm">
+          <table
+            aria-busy={loading}
+            className="w-full min-w-[700px] text-left text-sm"
+          >
             <thead className="border-b border-line bg-canvas/70 text-xs font-medium tracking-wide text-muted uppercase">
               <tr>
                 <th className="px-4 py-3">N° Comprobante</th>
@@ -85,11 +89,10 @@ export function InvoicesPage() {
             </thead>
             <tbody className="divide-y divide-line">
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-muted">
-                    Cargando registro de boletas…
-                  </td>
-                </tr>
+                <TableSkeleton
+                  columns={9}
+                  label="Cargando registro de boletas…"
+                />
               ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-10 text-center text-muted">
@@ -100,21 +103,31 @@ export function InvoicesPage() {
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-canvas/60">
                     <td className="px-4 py-3 font-semibold text-ink">
-                      {inv.invoice_number || '—'}
+                      {inv.invoice_number || "—"}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted">
-                      {inv.created_at ? formatDate(inv.created_at) : '—'}
+                      {inv.created_at ? formatDate(inv.created_at) : "—"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted">
-                      #{inv.client_code || '0000'}
+                      #{inv.client_code || "0000"}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-ink">{inv.client_name || 'Cliente'}</p>
-                      <p className="text-xs text-muted">DNI: {inv.client_document || '—'}</p>
+                      <p className="font-medium text-ink">
+                        {inv.client_name || "Cliente"}
+                      </p>
+                      <p className="text-xs text-muted">
+                        DNI: {inv.client_document || "—"}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 text-muted">{inv.plan_name || 'Plan'}</td>
-                    <td className="px-4 py-3 text-muted">{formatMoney(inv.subtotal ?? 0)}</td>
-                    <td className="px-4 py-3 text-muted">{formatMoney(inv.igv ?? 0)}</td>
+                    <td className="px-4 py-3 text-muted">
+                      {inv.plan_name || "Plan"}
+                    </td>
+                    <td className="px-4 py-3 text-muted">
+                      {formatMoney(inv.subtotal ?? 0)}
+                    </td>
+                    <td className="px-4 py-3 text-muted">
+                      {formatMoney(inv.igv ?? 0)}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-ink">
                       {formatMoney(inv.total ?? 0)}
                     </td>
@@ -136,5 +149,5 @@ export function InvoicesPage() {
         </div>
       </Card>
     </div>
-  )
+  );
 }
