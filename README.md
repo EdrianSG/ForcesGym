@@ -22,3 +22,5 @@ Esas claves están en Supabase → Project Settings → API. No uses la service 
 
 Reinicia `npm run dev` después de crear o cambiar `.env`.
 # ForcesGym
+
+Hola k ase
