@@ -1,6 +1,7 @@
+import { LoadError } from "@/components/ui/LoadError";
 import type { FormEvent } from "react";
 import { Edit, FileText, RefreshCw, Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { MemberDetailSkeleton } from "@/components/skeletons/PageSkeletons";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -9,20 +10,15 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
   downloadInvoicePDFDirectly,
-  getInvoicesByMemberId,
 } from "@/services/invoicesService";
 import {
-  getMemberById,
-  getMembers,
   updateMember,
 } from "@/services/membersService";
-import { getPlans } from "@/services/plansService";
+import { getMemberCache, numbersCache } from "@/services/pageCaches";
+import { useCachedResource } from "@/hooks/useCachedResource";
 import {
-  getSubscriptionsByMemberId,
   renewSubscription,
-  type SubscriptionWithDetails,
 } from "@/services/subscriptionsService";
-import type { Invoice, MemberListItem, MembershipPlan } from "@/types";
 import { formatDate, formatMoney, todayISODate } from "@/utils/dates";
 import {
   calculateEndDate,
@@ -38,10 +34,11 @@ const DURATION_PRESETS = [1, 2, 3, 6, 12] as const;
 
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [member, setMember] = useState<MemberListItem | null>(null);
-  const [history, setHistory] = useState<SubscriptionWithDetails[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, retry: loadData } = useCachedResource(getMemberCache(id ?? ""));
+  const member = data?.member ?? null;
+  const history = useMemo(() => data?.history ?? [], [data]);
+  const invoices = useMemo(() => data?.invoices ?? [], [data]);
+  const plans = useMemo(() => data?.plans ?? [], [data]);
 
   // Modal States
   const [showEditModal, setShowEditModal] = useState(false);
@@ -57,51 +54,32 @@ export function MemberDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   // Renew Form State
-  const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [startDate, setStartDate] = useState(todayISODate());
   const [months, setMonths] = useState(1);
   const [savingRenew, setSavingRenew] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
 
-  function loadData() {
-    if (!id) return;
-    setLoading(true);
-
-    Promise.all([
-      getMemberById(id),
-      getSubscriptionsByMemberId(id),
-      getPlans(),
-      getMembers(),
-      getInvoicesByMemberId(id),
-    ]).then(([m, h, pList, mList, invList]) => {
-      setMember(m);
-      setHistory(h);
-      setPlans(pList);
-      setInvoices(invList);
-      setExistingNumbers(
-        mList
-          .filter((item) => item.id !== id)
-          .map((item) => item.membership_number),
-      );
-      setLoading(false);
-
-      if (m) {
-        setEditFullName(m.full_name);
-        setEditNumber(m.membership_number);
-        setEditDni(m.dni);
-        setEditPhone(m.phone);
-      }
-    });
+  async function handleOpenEdit() {
+    if (!member) return;
+    setEditFullName(member.full_name);
+    setEditNumber(member.membership_number);
+    setEditDni(member.dni);
+    setEditPhone(member.phone);
+    setEditError(null);
+    setExistingNumbers((numbersCache.peek() ?? []).filter((number) => number !== member.membership_number));
+    setShowEditModal(true);
+    try {
+      const numbers = await numbersCache.get();
+      setExistingNumbers(numbers.filter((number) => number !== member.membership_number));
+    } catch {
+      setEditError("No se pudieron comprobar los códigos. Al guardar se validará que no estén duplicados.");
+    }
   }
-
-  useEffect(() => {
-    loadData();
-  }, [id]);
 
   const activePlans = useMemo(() => plans.filter((p) => p.active), [plans]);
   const selectedPlan =
-    activePlans.find((p) => p.id === selectedPlanId) ?? activePlans[0] ?? null;
+    activePlans.find((p) => p.id === selectedPlanId) ?? null;
 
   const isCodeTaken = useMemo(
     () => isMembershipNumberTaken(editNumber, existingNumbers),
@@ -110,11 +88,15 @@ export function MemberDetailPage() {
 
   const renewPreview = useMemo(() => {
     if (!selectedPlan || !startDate || months < 1) return null;
-    return {
+    try {
+      return {
       endDate: calculateEndDate(startDate, selectedPlan.duration_days, months),
       totalDays: selectedPlan.duration_days * months,
       totalPrice: selectedPlan.price * months,
     };
+    } catch {
+      return null;
+    }
   }, [months, selectedPlan, startDate]);
 
   function handleOpenRenew() {
@@ -135,6 +117,7 @@ export function MemberDetailPage() {
     } else {
       setStartDate(todayISODate());
     }
+    setRenewError(null);
     if (activePlans[0]) {
       setSelectedPlanId(activePlans[0].id);
     }
@@ -194,6 +177,10 @@ export function MemberDetailPage() {
     }
   }
 
+  if (loadError && !data) {
+    return <LoadError message="No se pudo cargar el cliente." onRetry={loadData} />;
+  }
+
   if (loading) {
     return <MemberDetailSkeleton />;
   }
@@ -211,12 +198,13 @@ export function MemberDetailPage() {
 
   return (
     <div>
+      {loadError ? <LoadError message="No se pudo actualizar el cliente. Se conserva la última vista disponible." onRetry={loadData} /> : null}
       <PageHeader
         title={member.full_name}
         description={`Membresía #${member.membership_number}`}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setShowEditModal(true)}>
+            <Button variant="secondary" onClick={() => void handleOpenEdit()}>
               <Edit className="size-4" />
               Editar datos
             </Button>
@@ -236,7 +224,7 @@ export function MemberDetailPage() {
             </h2>
             <button
               type="button"
-              onClick={() => setShowEditModal(true)}
+              onClick={() => void handleOpenEdit()}
               className="text-xs font-medium text-ink underline-offset-4 hover:underline flex items-center gap-1"
             >
               <Edit className="size-3.5" /> Editar
@@ -413,7 +401,8 @@ export function MemberDetailPage() {
               <h3 className="text-base font-semibold">Editar cliente</h3>
               <button
                 type="button"
-                onClick={() => setShowEditModal(false)}
+                disabled={savingEdit}
+                  onClick={() => setShowEditModal(false)}
                 className="rounded-lg p-1 text-muted hover:bg-canvas hover:text-ink"
               >
                 <X className="size-4" />
@@ -487,7 +476,7 @@ export function MemberDetailPage() {
               </label>
 
               {editError ? (
-                <p className="text-xs font-medium text-status-expired">
+                <p role="alert" className="text-xs font-medium text-status-expired">
                   ⚠️ {editError}
                 </p>
               ) : null}
@@ -503,6 +492,7 @@ export function MemberDetailPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={savingEdit}
                   onClick={() => setShowEditModal(false)}
                 >
                   Cancelar
@@ -524,7 +514,8 @@ export function MemberDetailPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowRenewModal(false)}
+                disabled={savingRenew}
+                  onClick={() => setShowRenewModal(false)}
                 className="rounded-lg p-1 text-muted hover:bg-canvas hover:text-ink"
               >
                 <X className="size-4" />
@@ -604,7 +595,7 @@ export function MemberDetailPage() {
               ) : null}
 
               {renewError ? (
-                <p className="text-xs font-medium text-status-expired">
+                <p role="alert" className="text-xs font-medium text-status-expired">
                   ⚠️ {renewError}
                 </p>
               ) : null}
@@ -616,6 +607,7 @@ export function MemberDetailPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={savingRenew}
                   onClick={() => setShowRenewModal(false)}
                 >
                   Cancelar

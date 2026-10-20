@@ -1,13 +1,15 @@
+import { useCachedResource } from "@/hooks/useCachedResource";
+import { plansCache } from "@/services/pageCaches";
+import { LoadError } from "@/components/ui/LoadError";
 import type { FormEvent } from "react";
 import { Edit, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
   createPlan,
-  getPlans,
   togglePlanActive,
   updatePlan,
 } from "@/services/plansService";
@@ -16,36 +18,25 @@ import { formatMoney } from "@/utils/dates";
 import { cn } from "@/utils/cn";
 
 export function PlansPage() {
-  const [plans, setPlans] = useState<MembershipPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, retry } = useCachedResource(plansCache);
+  const plans = data ?? [];
   const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    void getPlans().then((data) => {
-      if (active) {
-        setPlans(data);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   async function handleTogglePlan(id: string, currentActive: boolean) {
-    await togglePlanActive(id, !currentActive);
-    setPlans((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p)),
-    );
+    setError(null);
+    try {
+      await togglePlanActive(id, !currentActive);
+    } catch {
+      setError("No se pudo cambiar el estado del plan. Intenta nuevamente.");
+    }
   }
 
   async function handleSavePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingPlan) return;
+    if (!editingPlan || saving) return;
 
     setSaving(true);
     setError(null);
@@ -57,11 +48,6 @@ export function PlansPage() {
 
     try {
       await updatePlan(editingPlan.id, { name, price, duration_days });
-      setPlans((prev) =>
-        prev.map((p) =>
-          p.id === editingPlan.id ? { ...p, name, price, duration_days } : p,
-        ),
-      );
       setEditingPlan(null);
     } catch (err: unknown) {
       setError(
@@ -74,6 +60,7 @@ export function PlansPage() {
 
   async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
 
     setSaving(true);
     setError(null);
@@ -84,13 +71,12 @@ export function PlansPage() {
     const duration_days = Number(formData.get("duration_days"));
 
     try {
-      const created = await createPlan({
+      await createPlan({
         name,
         price,
         duration_days,
         active: true,
       });
-      setPlans((prev) => [...prev, created]);
       setShowNewModal(false);
     } catch (err: unknown) {
       setError(
@@ -99,6 +85,10 @@ export function PlansPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadError && data === null) {
+    return <LoadError message="No se pudieron cargar los datos. Intenta nuevamente." onRetry={retry} />;
   }
 
   return (
@@ -113,6 +103,9 @@ export function PlansPage() {
           </Button>
         }
       />
+
+      {error && !editingPlan && !showNewModal ? <p role="alert" className="mb-3 text-status-expired">{error}</p> : null}
+      {loadError ? <LoadError message="No se pudieron actualizar los datos. Se conserva la última vista disponible." onRetry={retry} /> : null}
 
       <Card>
         <div className="overflow-x-auto">
@@ -197,7 +190,8 @@ export function PlansPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowNewModal(false)}
+                disabled={saving}
+                  onClick={() => setShowNewModal(false)}
                 className="rounded-lg p-1 text-muted hover:bg-canvas hover:text-ink"
               >
                 <X className="size-5" />
@@ -224,7 +218,7 @@ export function PlansPage() {
                 <input
                   type="number"
                   name="price"
-                  step="0.5"
+                  step="0.01"
                   min="0"
                   placeholder="150.00"
                   required
@@ -248,7 +242,7 @@ export function PlansPage() {
               </label>
 
               {error ? (
-                <p className="text-sm font-medium text-status-expired">
+                <p role="alert" className="text-sm font-medium text-status-expired">
                   {error}
                 </p>
               ) : null}
@@ -257,6 +251,7 @@ export function PlansPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={saving}
                   onClick={() => setShowNewModal(false)}
                 >
                   Cancelar
@@ -280,7 +275,8 @@ export function PlansPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => setEditingPlan(null)}
+                disabled={saving}
+                  onClick={() => setEditingPlan(null)}
                 className="rounded-lg p-1 text-muted hover:bg-canvas hover:text-ink"
               >
                 <X className="size-5" />
@@ -307,7 +303,7 @@ export function PlansPage() {
                 <input
                   type="number"
                   name="price"
-                  step="0.5"
+                  step="0.01"
                   min="0"
                   defaultValue={editingPlan.price}
                   required
@@ -330,7 +326,7 @@ export function PlansPage() {
               </label>
 
               {error ? (
-                <p className="text-sm font-medium text-status-expired">
+                <p role="alert" className="text-sm font-medium text-status-expired">
                   {error}
                 </p>
               ) : null}
@@ -339,6 +335,7 @@ export function PlansPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={saving}
                   onClick={() => setEditingPlan(null)}
                 >
                   Cancelar

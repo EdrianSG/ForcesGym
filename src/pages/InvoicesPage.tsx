@@ -1,40 +1,20 @@
+import { useCachedResource } from "@/hooks/useCachedResource";
+import { invoicesCache } from "@/services/pageCaches";
+import { LoadError } from "@/components/ui/LoadError";
 import { FileText, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
   downloadInvoicePDFDirectly,
-  getAllInvoices,
 } from "@/services/invoicesService";
-import type { Invoice } from "@/types";
 import { formatDate, formatMoney } from "@/utils/dates";
 
 export function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, retry } = useCachedResource(invoicesCache);
+  const invoices = data ?? [];
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    getAllInvoices()
-      .then((data) => {
-        if (active) {
-          setInvoices(Array.isArray(data) ? data : []);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error("Error al cargar boletas:", err);
-        if (active) {
-          setInvoices([]);
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const filteredInvoices = invoices.filter((inv) => {
     const q = query.trim().toLowerCase();
@@ -48,12 +28,18 @@ export function InvoicesPage() {
     );
   });
 
+  if (loadError && data === null) {
+    return <LoadError message="No se pudieron cargar los datos. Intenta nuevamente." onRetry={retry} />;
+  }
+
   return (
     <div>
       <PageHeader
         title="Facturación Electrónica SUNAT"
         description="Registro y archivos PDF de todas las boletas de venta emitidas guardadas en Supabase."
       />
+
+      {loadError ? <LoadError message="No se pudieron actualizar los datos. Se conserva la última vista disponible." onRetry={retry} /> : null}
 
       <Card className="overflow-hidden">
         <div className="border-b border-line p-3 sm:p-4">

@@ -1,3 +1,6 @@
+import { singleFlightWrite } from '@/lib/singleFlightWrite'
+import { requireText, validateMoney, validatePositiveInteger, writeError } from '@/utils/validation'
+import { invalidateData } from '@/lib/cacheRegistry'
 import { supabase } from '@/lib/supabase'
 import type { MembershipPlan } from '@/types'
 
@@ -6,16 +9,14 @@ export async function getPlans(): Promise<MembershipPlan[]> {
     .from('membership_plans')
     .select('*')
     .order('price', { ascending: true })
+    .abortSignal(AbortSignal.timeout(8000))
 
-  if (error || !data) {
-    console.error('Error al obtener planes de Supabase:', error)
-    return []
-  }
+  if (error) throw writeError(error, 'plan')
 
-  return data as MembershipPlan[]
+  return (data ?? []) as MembershipPlan[]
 }
 
-export async function togglePlanActive(
+export const togglePlanActive = singleFlightWrite(async function (
   id: string,
   active: boolean,
 ): Promise<void> {
@@ -26,11 +27,12 @@ export async function togglePlanActive(
 
   if (error) {
     console.error('Error al cambiar estado del plan:', error)
-    throw new Error(error.message)
+    throw writeError(error, 'plan')
   }
-}
+  invalidateData('membership_plans')
+})
 
-export async function updatePlan(
+export const updatePlan = singleFlightWrite(async function (
   id: string,
   data: {
     name?: string
@@ -39,6 +41,10 @@ export async function updatePlan(
     active?: boolean
   },
 ): Promise<void> {
+  data = { ...data }
+  if (data.name !== undefined) data.name = requireText(data.name, 'el nombre del plan')
+  if (data.price !== undefined) validateMoney(data.price)
+  if (data.duration_days !== undefined) validatePositiveInteger(data.duration_days, 'La duración')
   const { error } = await supabase
     .from('membership_plans')
     .update(data)
@@ -46,16 +52,20 @@ export async function updatePlan(
 
   if (error) {
     console.error('Error al actualizar el plan:', error)
-    throw new Error(error.message)
+    throw writeError(error, 'plan')
   }
-}
+  invalidateData('membership_plans')
+})
 
-export async function createPlan(data: {
+export const createPlan = singleFlightWrite(async function (data: {
   name: string
   price: number
   duration_days: number
   active?: boolean
 }): Promise<MembershipPlan> {
+  data = { ...data, name: requireText(data.name, 'el nombre del plan') }
+  validateMoney(data.price)
+  validatePositiveInteger(data.duration_days, 'La duración')
   const { data: inserted, error } = await supabase
     .from('membership_plans')
     .insert([
@@ -71,8 +81,9 @@ export async function createPlan(data: {
 
   if (error || !inserted) {
     console.error('Error al crear el plan en Supabase:', error)
-    throw new Error(error?.message ?? 'No se pudo crear el plan.')
+    throw writeError(error ?? { message: 'No se pudo crear el plan.' }, 'plan')
   }
 
+  invalidateData('membership_plans')
   return inserted as MembershipPlan
-}
+})

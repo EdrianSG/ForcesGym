@@ -1,3 +1,4 @@
+import { validateDate, validatePositiveInteger } from '@/utils/validation'
 import type { MembershipStatus } from '@/types'
 import { addDays, parseISODate, startOfToday, toISODate } from '@/utils/dates'
 
@@ -31,8 +32,14 @@ export function calculateEndDate(
   durationDays: number,
   months: number,
 ): string {
+  validateDate(startDateIso)
+  validatePositiveInteger(durationDays, 'La duración del plan')
+  validatePositiveInteger(months, 'La cantidad de meses')
+  if (months > 24) throw new Error('La cantidad de meses no puede superar 24.')
   const startDate = parseISODate(startDateIso)
-  return toISODate(addDays(startDate, durationDays * months))
+  const endDate = addDays(startDate, durationDays * months)
+  if (!Number.isFinite(endDate.getTime())) throw new Error('La duración excede el rango de fechas permitido.')
+  return toISODate(endDate)
 }
 
 export function generateUniqueMembershipNumber(
@@ -54,7 +61,7 @@ export function generateUniqueMembershipNumber(
     }
   }
 
-  return '9999'
+  return ''
 }
 
 export function isMembershipNumberTaken(

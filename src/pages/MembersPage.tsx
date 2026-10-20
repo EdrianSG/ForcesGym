@@ -1,36 +1,20 @@
 import { Plus, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { getMembers } from "@/services/membersService";
-import type { MemberListItem } from "@/types";
+import { getSearchCache } from "@/services/pageCaches";
+import { useCachedResource } from "@/hooks/useCachedResource";
 import { formatDate } from "@/utils/dates";
 import { getMembershipStatus } from "@/utils/membership";
 
 export function MembersPage() {
   const [query, setQuery] = useState("");
-  const [members, setMembers] = useState<MemberListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-
-    void getMembers(query).then((data) => {
-      if (active) {
-        setMembers(data);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [query]);
+  const { data, loading, error, retry } = useCachedResource(getSearchCache(query.trim()), query.trim() ? 300 : 0);
+  const members = data ?? [];
 
   return (
     <div>
@@ -47,6 +31,8 @@ export function MembersPage() {
         }
       />
 
+      {error && data ? <p role="alert" className="mb-3 text-status-expired">No se pudo actualizar la búsqueda. Se muestran los últimos resultados disponibles.</p> : null}
+      <p className="mb-3 text-sm text-muted">Se muestran hasta 50 clientes. Escribe para acotar la búsqueda.</p>
       <Card className="overflow-hidden">
         <div className="border-b border-line p-3 sm:p-4">
           <label className="relative mx-auto block max-w-xl">
@@ -85,6 +71,13 @@ export function MembersPage() {
                   label="Cargando clientes…"
                   align="center"
                 />
+              ) : error && !data ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center" role="alert">
+                    <p>No se pudo consultar los clientes. Intenta nuevamente.</p>
+                    <Button className="mt-3" onClick={retry}>Reintentar</Button>
+                  </td>
+                </tr>
               ) : members.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-muted">

@@ -7,7 +7,8 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('es-PE', {
 const CURRENCY_FORMATTER = new Intl.NumberFormat('es-PE', {
   style: 'currency',
   currency: 'PEN',
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 })
 
 export function parseISODate(isoDate: string): Date {

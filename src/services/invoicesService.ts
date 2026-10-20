@@ -1,3 +1,4 @@
+import { invalidateData } from '@/lib/cacheRegistry'
 import { jsPDF } from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import type { Invoice } from '@/types'
@@ -231,6 +232,7 @@ export async function createAndUploadInvoice(data: {
     throw new Error(dbError?.message ?? 'No se pudo registrar la boleta.')
   }
 
+  invalidateData('invoices')
   return inserted as Invoice
 }
 
@@ -242,13 +244,11 @@ export async function getInvoicesByMemberId(
     .select('*')
     .eq('member_id', memberId)
     .order('created_at', { ascending: false })
+    .abortSignal(AbortSignal.timeout(8000))
 
-  if (error || !data) {
-    console.error('Error al obtener comprobantes de Supabase:', error)
-    return []
-  }
+  if (error) throw new Error(error.message)
 
-  return data as Invoice[]
+  return (data ?? []) as Invoice[]
 }
 
 export async function getAllInvoices(): Promise<Invoice[]> {
@@ -256,11 +256,9 @@ export async function getAllInvoices(): Promise<Invoice[]> {
     .from('invoices')
     .select('*')
     .order('created_at', { ascending: false })
+    .abortSignal(AbortSignal.timeout(8000))
 
-  if (error || !data) {
-    console.error('Error al obtener facturas:', error)
-    return []
-  }
+  if (error) throw new Error(error.message)
 
-  return data as Invoice[]
+  return (data ?? []) as Invoice[]
 }

@@ -1,19 +1,13 @@
+import { singleFlightWrite } from '@/lib/singleFlightWrite'
+import { normalizeMember, validateSubscription, writeError } from '@/utils/validation'
+import { RegistrationIncompleteError } from '@/lib/registrationError'
+import { invalidateData } from '@/lib/cacheRegistry'
 import { supabase } from '@/lib/supabase'
 import { createAndUploadInvoice } from '@/services/invoicesService'
 import type { MemberListItem } from '@/types'
 
-export async function getMembers(query?: string): Promise<MemberListItem[]> {
-  const { data: members, error } = await supabase
-    .from('members')
-    .select('*, member_latest_subscriptions(*)')
-    .order('created_at', { ascending: false })
-
-  if (error || !members) {
-    console.error('Error al obtener los clientes de Supabase:', error)
-    return []
-  }
-
-  const result: MemberListItem[] = members.map((m: Record<string, unknown>) => {
+function mapMembers(members: Record<string, unknown>[]): MemberListItem[] {
+  return members.map((m: Record<string, unknown>) => {
     const rawSub = m.member_latest_subscriptions
     const latest = Array.isArray(rawSub) ? rawSub[0] : rawSub
 
@@ -36,6 +30,62 @@ export async function getMembers(query?: string): Promise<MemberListItem[]> {
             : null,
     }
   })
+}
+
+// Search remotely so a missing number does not require downloading the roster.
+export async function searchMembers(
+  query: string,
+  signal: AbortSignal,
+): Promise<MemberListItem[]> {
+  let request = supabase
+    .from('members')
+    .select('*, member_latest_subscriptions(*)')
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  const term = query.trim()
+  if (term) {
+    // Quote PostgREST values and escape LIKE wildcards entered by the user.
+    const escaped = term.replace(/[\\%_]/g, '\\$&')
+    const pattern = JSON.stringify(`%${escaped}%`)
+    request = request.or(
+      ['membership_number', 'full_name', 'dni', 'phone']
+        .map((field) => `${field}.ilike.${pattern}`)
+        .join(','),
+    )
+  }
+
+  const { data, error } = await request.abortSignal(signal)
+  if (error) throw new Error(error.message)
+  return mapMembers(data ?? [])
+}
+
+export async function getMembershipNumbers(excludeId?: string): Promise<string[]> {
+  // Only transfer codes; paginate to avoid Supabase's default row limit.
+  const signal = AbortSignal.timeout(8000)
+  const numbers: string[] = []
+  const pageSize = 1000
+  for (let offset = 0; ; offset += pageSize) {
+    let request = supabase.from('members').select('membership_number')
+      .order('id').range(offset, offset + pageSize - 1)
+    if (excludeId) request = request.neq('id', excludeId)
+    const { data, error } = await request.abortSignal(signal)
+    if (error) throw new Error(error.message)
+    numbers.push(...(data ?? []).map((row) => String(row.membership_number)))
+    if (!data || data.length < pageSize) return numbers
+  }
+}
+
+export async function getMembers(query?: string): Promise<MemberListItem[]> {
+  const { data: members, error } = await supabase
+    .from('members')
+    .select('*, member_latest_subscriptions(*)')
+    .order('created_at', { ascending: false })
+    .abortSignal(AbortSignal.timeout(8000))
+
+  if (error) throw new Error(error.message)
+
+  const result = mapMembers(members ?? [])
 
   if (query && query.trim()) {
     const q = query.trim().toLowerCase()
@@ -52,11 +102,18 @@ export async function getMembers(query?: string): Promise<MemberListItem[]> {
 }
 
 export async function getMemberById(id: string): Promise<MemberListItem | null> {
-  const members = await getMembers()
-  return members.find((m) => m.id === id) ?? null
+  const { data, error } = await supabase
+    .from('members')
+    .select('*, member_latest_subscriptions(*)')
+    .eq('id', id)
+    .abortSignal(AbortSignal.timeout(8000))
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data ? mapMembers([data])[0] : null
 }
 
-export async function createMemberWithSubscription(data: {
+export const createMemberWithSubscription = singleFlightWrite(async function (data: {
   membership_number: string
   full_name: string
   dni: string
@@ -67,6 +124,8 @@ export async function createMemberWithSubscription(data: {
   price_paid: number
   plan_name?: string
 }): Promise<MemberListItem> {
+  data = normalizeMember(data)
+  validateSubscription(data)
   const { data: member, error: memberError } = await supabase
     .from('members')
     .insert([
@@ -80,11 +139,13 @@ export async function createMemberWithSubscription(data: {
     .select()
     .single()
 
-  if (memberError) {
-    throw new Error(memberError.message)
+  if (memberError || !member) {
+    throw writeError(memberError ?? { message: 'No se pudo confirmar el registro del cliente. Revisa la lista antes de reintentar.' }, 'cliente')
   }
 
-  const { data: subData, error: subError } = await supabase
+  invalidateData('members', 'subscriptions')
+
+  const { data: subData, error: subError } = await Promise.resolve(supabase
     .from('subscriptions')
     .insert([
       {
@@ -96,11 +157,13 @@ export async function createMemberWithSubscription(data: {
       },
     ])
     .select()
-    .single()
+    .single()).catch(() => { throw new RegistrationIncompleteError(member.id) })
 
   if (subError || !subData) {
-    throw new Error(subError?.message ?? 'Error al crear la suscripción.')
+    throw new RegistrationIncompleteError(member.id)
   }
+
+  invalidateData('members', 'subscriptions')
 
   // Generar Boleta SUNAT en PDF y subir a Supabase Storage
   try {
@@ -118,15 +181,17 @@ export async function createMemberWithSubscription(data: {
     console.warn('Aviso al emitir boleta de venta:', invErr)
   }
 
-  const created = await getMemberById(member.id)
-  if (!created) {
-    throw new Error('No se pudo recuperar el cliente creado.')
-  }
+  // Avoid reporting a successful registration as failed if a follow-up read fails.
+  return {
+    ...member,
+    current_plan_name: data.plan_name ?? null,
+    current_start_date: subData.start_date,
+    current_end_date: subData.end_date,
+    current_price_paid: Number(subData.price_paid),
+  } as MemberListItem
+})
 
-  return created
-}
-
-export async function updateMember(
+export const updateMember = singleFlightWrite(async function (
   id: string,
   data: {
     membership_number?: string
@@ -134,7 +199,8 @@ export async function updateMember(
     dni?: string
     phone?: string
   },
-): Promise<MemberListItem | null> {
+): Promise<void> {
+  data = normalizeMember(data)
   const { error } = await supabase
     .from('members')
     .update({
@@ -144,8 +210,8 @@ export async function updateMember(
     .eq('id', id)
 
   if (error) {
-    throw new Error(error.message)
+    throw writeError(error, 'cliente')
   }
+  invalidateData('members', 'subscriptions')
 
-  return getMemberById(id)
-}
+})

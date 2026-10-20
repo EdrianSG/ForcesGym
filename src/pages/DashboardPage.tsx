@@ -1,3 +1,4 @@
+import { LoadError } from "@/components/ui/LoadError";
 import { AlertTriangle, Clock3, UserRound, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -5,37 +6,51 @@ import { DashboardSkeleton } from "@/components/skeletons/PageSkeletons";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { getMembers } from "@/services/membersService";
-import {
-  getSubscriptions,
-  type SubscriptionWithDetails,
-} from "@/services/subscriptionsService";
-import type { MemberListItem } from "@/types";
+import { dashboardCache } from "@/services/dashboardService";
 import { formatDate, formatMoney } from "@/utils/dates";
 import { getMembershipStatus } from "@/utils/membership";
 
 export function DashboardPage() {
-  const [members, setMembers] = useState<MemberListItem[]>([]);
-  const [subscriptions, setSubscriptions] = useState<SubscriptionWithDetails[]>(
-    [],
-  );
-  const [loading, setLoading] = useState(true);
+  const [snapshot, setSnapshot] = useState(() => dashboardCache.peek());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [today, setToday] = useState(() => new Date().setHours(0, 0, 0, 0));
+  const members = useMemo(() => snapshot?.members ?? [], [snapshot]);
+  const subscriptions = useMemo(() => snapshot?.subscriptions ?? [], [snapshot]);
 
   useEffect(() => {
     let active = true;
-
-    Promise.all([getMembers(), getSubscriptions()]).then(([mList, sList]) => {
-      if (active) {
-        setMembers(mList);
-        setSubscriptions(sList);
-        setLoading(false);
-      }
+    const refresh = (force = false) => {
+      if (document.visibilityState === "hidden") return;
+      setToday(new Date().setHours(0, 0, 0, 0));
+      void dashboardCache.get(force).then((data) => {
+        if (active) {
+          // A sign-out or mutation may invalidate an in-flight response.
+          setSnapshot(dashboardCache.peek());
+          if (dashboardCache.peek() === data) setLoadError(null);
+          else refresh();
+        }
+      }).catch(() => {
+        if (active) setLoadError("No se pudo actualizar el resumen. Los datos anteriores pueden estar desactualizados.");
+      });
+    };
+    const onVisible = () => refresh();
+    const unsubscribe = dashboardCache.subscribe(() => {
+      setSnapshot(dashboardCache.peek());
+      refresh();
     });
-
+    refresh(retry > 0);
+    const interval = window.setInterval(onVisible, 30_000);
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
+      unsubscribe();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [retry]);
 
   const stats = useMemo(
     () => [
@@ -47,46 +62,38 @@ export function DashboardPage() {
       {
         label: "Membresías activas",
         value: members.filter(
-          (m) => getMembershipStatus(m.current_end_date) === "ACTIVO",
+          (m) => getMembershipStatus(m.current_end_date, new Date(today)) === "ACTIVO",
         ).length,
         icon: UserRound,
       },
       {
         label: "Membresías vencidas",
         value: members.filter(
-          (m) => getMembershipStatus(m.current_end_date) === "VENCIDO",
+          (m) => getMembershipStatus(m.current_end_date, new Date(today)) === "VENCIDO",
         ).length,
         icon: AlertTriangle,
       },
       {
         label: "Vencen próximamente",
         value: members.filter(
-          (m) => getMembershipStatus(m.current_end_date) === "PRÓXIMO A VENCER",
+          (m) => getMembershipStatus(m.current_end_date, new Date(today)) === "PRÓXIMO A VENCER",
         ).length,
         icon: Clock3,
       },
     ],
-    [members],
+    [members, today],
   );
 
-  const latestRenewals = useMemo(
-    () =>
-      [...subscriptions]
-        .sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )
-        .slice(0, 5),
-    [subscriptions],
-  );
+  const latestRenewals = subscriptions;
 
   const expiringSoon = useMemo(
     () =>
       members.filter(
-        (m) => getMembershipStatus(m.current_end_date) === "PRÓXIMO A VENCER",
+        (m) => getMembershipStatus(m.current_end_date, new Date(today)) === "PRÓXIMO A VENCER",
       ),
-    [members],
+    [members, today],
   );
+
   return (
     <div>
       <PageHeader
@@ -94,7 +101,9 @@ export function DashboardPage() {
         description="Resumen operativo del gimnasio."
       />
 
-      {loading ? (
+      {loadError ? <LoadError message={loadError} onRetry={() => setRetry((value) => value + 1)} /> : null}
+      {!snapshot ? (
+        loadError ? null :
         <DashboardSkeleton />
       ) : (
         <>

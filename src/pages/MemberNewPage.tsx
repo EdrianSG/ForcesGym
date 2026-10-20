@@ -1,6 +1,8 @@
+import { RegistrationIncompleteError } from '@/lib/registrationError';
+import { LoadError } from "@/components/ui/LoadError";
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MemberFormSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Button } from "@/components/ui/Button";
@@ -8,10 +10,9 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
   createMemberWithSubscription,
-  getMembers,
 } from "@/services/membersService";
-import { getPlans } from "@/services/plansService";
-import type { MembershipPlan } from "@/types";
+import { plansCache, numbersCache } from "@/services/pageCaches";
+import { useCachedResource } from "@/hooks/useCachedResource";
 import { formatDate, formatMoney, todayISODate } from "@/utils/dates";
 import {
   calculateEndDate,
@@ -27,42 +28,22 @@ const DURATION_PRESETS = [1, 2, 3, 6, 12] as const;
 
 export function MemberNewPage() {
   const navigate = useNavigate();
-  const [plans, setPlans] = useState<MembershipPlan[]>([]);
-  const [existingNumbers, setExistingNumbers] = useState<string[]>([]);
-  const [membershipNumber, setMembershipNumber] = useState("");
+  const planResource = useCachedResource(plansCache);
+  const numberResource = useCachedResource(numbersCache);
+  const plans = useMemo(() => planResource.data ?? [], [planResource.data]);
+  const existingNumbers = useMemo(() => numberResource.data ?? [], [numberResource.data]);
+  const loading = planResource.loading || numberResource.loading;
+  const loadError = planResource.error || numberResource.error;
+  const retry = () => { planResource.retry(); numberResource.retry(); };
+  const suggestedNumber = useMemo(() => generateUniqueMembershipNumber(existingNumbers), [existingNumbers]);
+  const [manualNumber, setMembershipNumber] = useState<string | null>(null);
+  const membershipNumber = manualNumber ?? suggestedNumber;
   const [planId, setPlanId] = useState("");
   const [startDate, setStartDate] = useState(todayISODate());
   const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [partialMemberId, setPartialMemberId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([getPlans(), getMembers()])
-      .then(([planList, memberList]) => {
-        if (!active) return;
-        setPlans(planList);
-        const numbers = memberList.map((m) => m.membership_number);
-        setExistingNumbers(numbers);
-        setMembershipNumber(generateUniqueMembershipNumber(numbers));
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Error al cargar los datos del registro.",
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const activePlans = useMemo(() => plans.filter((p) => p.active), [plans]);
 
@@ -78,11 +59,15 @@ export function MemberNewPage() {
       return null;
     }
 
-    return {
+    try {
+      return {
       endDate: calculateEndDate(startDate, selectedPlan.duration_days, months),
       totalDays: selectedPlan.duration_days * months,
       totalPrice: selectedPlan.price * months,
     };
+    } catch {
+      return null;
+    }
   }, [months, selectedPlan, startDate]);
 
   function handleGenerateCode() {
@@ -91,7 +76,7 @@ export function MemberNewPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isTaken || !selectedPlan || !preview || saving) {
+    if (partialMemberId || isTaken || !selectedPlan || !preview || saving) {
       return;
     }
 
@@ -118,6 +103,7 @@ export function MemberNewPage() {
 
       void navigate(`/members/${created.id}`);
     } catch (err: unknown) {
+      if (err instanceof RegistrationIncompleteError) setPartialMemberId(err.memberId);
       setError(
         err instanceof Error ? err.message : "Error al registrar el cliente.",
       );
@@ -138,6 +124,10 @@ export function MemberNewPage() {
     );
   }
 
+  if (loadError && (!planResource.data || !numberResource.data)) {
+    return <LoadError message="No se pudieron cargar los datos del registro." onRetry={retry} />;
+  }
+
   return (
     <div>
       <PageHeader
@@ -145,6 +135,7 @@ export function MemberNewPage() {
         description="Registra al cliente y define por cuánto tiempo inicia su membresía."
       />
 
+      {loadError ? <LoadError message="No se pudieron actualizar los datos. Se conserva la última información disponible." onRetry={retry} /> : null}
       <Card className="mx-auto max-w-2xl p-6">
         <form className="space-y-8" onSubmit={handleSubmit}>
           <section>
@@ -159,6 +150,7 @@ export function MemberNewPage() {
                 <div className="flex gap-2">
                   <input
                     name="membership_number"
+                    inputMode="numeric"
                     required
                     value={membershipNumber}
                     onChange={(event) =>
@@ -197,6 +189,7 @@ export function MemberNewPage() {
                 <span className="mb-1.5 block text-sm font-medium">DNI</span>
                 <input
                   name="dni"
+                  inputMode="numeric"
                   required
                   placeholder="12345678"
                   className={fieldClassName}
@@ -220,6 +213,7 @@ export function MemberNewPage() {
                 </span>
                 <input
                   name="phone"
+                  type="tel"
                   placeholder="999999999"
                   className={fieldClassName}
                 />
@@ -295,18 +289,12 @@ export function MemberNewPage() {
                   <input
                     type="number"
                     name="months"
+                    step={1}
                     min={1}
                     max={24}
                     required
-                    value={months}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      setMonths(
-                        Number.isNaN(value)
-                          ? 1
-                          : Math.min(24, Math.max(1, value)),
-                      );
-                    }}
+                    value={Number.isNaN(months) ? '' : months}
+                    onChange={(event) => setMonths(event.target.valueAsNumber)}
                     className={fieldClassName}
                   />
                 </label>
@@ -344,13 +332,15 @@ export function MemberNewPage() {
           </section>
 
           {error ? (
-            <p className="text-sm text-status-expired font-medium">
+            <p role="alert" className="text-sm text-status-expired font-medium">
               ⚠️ {error}
             </p>
           ) : null}
 
+          {partialMemberId ? <Link className="block font-medium underline" to={`/members/${partialMemberId}`}>Abrir ficha del cliente registrado</Link> : null}
+          {!preview ? <p role="alert" className="text-sm text-status-expired">Selecciona un plan, una fecha válida y una cantidad entera de meses entre 1 y 24.</p> : null}
           <div className="flex gap-2">
-            <Button type="submit" disabled={saving || isTaken}>
+            <Button type="submit" disabled={saving || isTaken || !preview || Boolean(partialMemberId)}>
               {saving ? "Guardando cliente…" : "Guardar cliente"}
             </Button>
             <Link to="/members">

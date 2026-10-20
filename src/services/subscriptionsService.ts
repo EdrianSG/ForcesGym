@@ -1,3 +1,6 @@
+import { singleFlightWrite } from '@/lib/singleFlightWrite'
+import { validateSubscription } from '@/utils/validation'
+import { invalidateData } from '@/lib/cacheRegistry'
 import { supabase } from '@/lib/supabase'
 import { createAndUploadInvoice } from '@/services/invoicesService'
 import type { Subscription } from '@/types'
@@ -7,18 +10,18 @@ export type SubscriptionWithDetails = Subscription & {
   member_name: string
 }
 
-export async function getSubscriptions(): Promise<SubscriptionWithDetails[]> {
-  const { data, error } = await supabase
+export async function getSubscriptions(memberId?: string): Promise<SubscriptionWithDetails[]> {
+  let request = supabase
     .from('subscriptions')
     .select('*, members(full_name), membership_plans(name)')
     .order('created_at', { ascending: false })
 
-  if (error || !data) {
-    console.error('Error al obtener las suscripciones de Supabase:', error)
-    return []
-  }
+  if (memberId) request = request.eq('member_id', memberId)
+  const { data, error } = await request.abortSignal(AbortSignal.timeout(8000))
 
-  return data.map((sub: Record<string, unknown>) => {
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((sub: Record<string, unknown>) => {
     const memberObj = sub.members as { full_name?: string } | null
     const planObj = sub.membership_plans as { name?: string } | null
 
@@ -42,11 +45,10 @@ export async function getSubscriptions(): Promise<SubscriptionWithDetails[]> {
 export async function getSubscriptionsByMemberId(
   memberId: string,
 ): Promise<SubscriptionWithDetails[]> {
-  const all = await getSubscriptions()
-  return all.filter((sub) => sub.member_id === memberId)
+  return getSubscriptions(memberId)
 }
 
-export async function renewSubscription(data: {
+export const renewSubscription = singleFlightWrite(async function (data: {
   member_id: string
   plan_id: string
   start_date: string
@@ -55,6 +57,7 @@ export async function renewSubscription(data: {
   plan_name?: string
   member_name?: string
 }): Promise<SubscriptionWithDetails> {
+  validateSubscription(data)
   const { data: inserted, error } = await supabase
     .from('subscriptions')
     .insert([
@@ -72,6 +75,8 @@ export async function renewSubscription(data: {
   if (error || !inserted) {
     throw new Error(error?.message ?? 'Error al renovar la membresía.')
   }
+
+  invalidateData('subscriptions')
 
   const memberObj = inserted.members as {
     full_name?: string
@@ -110,7 +115,7 @@ export async function renewSubscription(data: {
     member_name: memberObj?.full_name ?? data.member_name ?? 'Cliente',
     plan_name: planObj?.name ?? data.plan_name ?? 'Plan',
   }
-}
+})
 
 export async function updateSubscription(
   subscriptionId: string,
@@ -129,4 +134,5 @@ export async function updateSubscription(
   if (error) {
     throw new Error(error.message)
   }
+  invalidateData('subscriptions')
 }

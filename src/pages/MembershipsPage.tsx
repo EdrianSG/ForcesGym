@@ -1,30 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCachedResource } from "@/hooks/useCachedResource";
+import { membersCache } from "@/services/pageCaches";
+import { LoadError } from "@/components/ui/LoadError";
 import { Link } from "react-router-dom";
 import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { getMembers } from "@/services/membersService";
-import type { MemberListItem } from "@/types";
 import { formatDate } from "@/utils/dates";
 import { getMembershipStatus } from "@/utils/membership";
 
 export function MembershipsPage() {
-  const [members, setMembers] = useState<MemberListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, retry } = useCachedResource(membersCache);
+  const members = data ?? [];
 
-  useEffect(() => {
-    let active = true;
-    void getMembers().then((data) => {
-      if (active) {
-        setMembers(data);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+
+  if (loadError && data === null) {
+    return <LoadError message="No se pudieron cargar los datos. Intenta nuevamente." onRetry={retry} />;
+  }
 
   return (
     <div>
@@ -32,6 +24,8 @@ export function MembershipsPage() {
         title="Membresías"
         description="Vista rápida del estado actual de cada cliente."
       />
+
+      {loadError ? <LoadError message="No se pudieron actualizar los datos. Se conserva la última vista disponible." onRetry={retry} /> : null}
 
       <Card>
         <div className="overflow-x-auto">
